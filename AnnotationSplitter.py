@@ -9,6 +9,7 @@ Created on Thu Jun 14 11:03:13 2018
 import pandas as pd
 import sys
 import os.path
+import re
 
 def annotation_splitter(in_annotation):
     '''
@@ -37,7 +38,7 @@ def annotation_splitter(in_annotation):
         if curr_time == last_time and time_record[2] == 'start':
             curr_activities.append(time_record[1].lower())
         else:
-            if len(curr_activities) > 0:
+            if len(curr_activities) > 0 and last_time != curr_time:
                 new_label = '-'.join(curr_activities)
                 splitted_time_list.append(pd.Series([last_time, last_time, curr_time, new_label],
                                                     index=['HEADER_TIME_STAMP','START_TIME','STOP_TIME','LABEL_NAME']))
@@ -52,6 +53,7 @@ def annotation_splitter(in_annotation):
     splitted_annotation = pd.DataFrame(splitted_time_list)
     
     return splitted_annotation
+
 
 def class_mapping(in_annotation):
     '''
@@ -74,14 +76,62 @@ def class_mapping(in_annotation):
     
     return pd.DataFrame(mapped_list)
     
+
 def __get_posture(label):
-    pass
+    if label == 'transition':
+        return label
+    
+    sit_keywords = ['sit','bik','reclin']
+    if any(re.findall(word, label) for word in sit_keywords):
+        return 'sitting'
+    
+    upright_keywords = ['stand', 'run', 'jump', 'walk', 'frisbee']
+    if any(re.findall(word, label) for word in upright_keywords):
+        return 'upright'
+    
+    lying_keywords = ['lying']
+    if any(re.findall(word, label) for word in lying_keywords):
+        return 'lying'
+
+    print('unkown posture:',label)
+    return 'unkown'
+
 
 def __get_four_class(label):
-    pass
+    amb_keywords = ['walk','run','stair']
+    if any(re.findall(word, label) for word in amb_keywords):
+        return 'ambulation'
+    
+    cyc_keywords = ['cycl','bik']
+    if any(re.findall(word, label) for word in cyc_keywords):
+        return 'cycling'
+    
+    seden_keywords = ['sit','stand','lying','typ', 'sleep', 'computer', 'still',
+                      'elevator']
+    if any(re.findall(word, label) for word in seden_keywords):
+        return 'sedentary'
+    
+    other_keywords = ['frisbee', 'sweep', 'paint', 'clean.*room', 'soccer', 
+                      'basketball', 'tennis', 'jump']
+    if any(re.findall(word, label) for word in other_keywords):
+        return 'others'
+    
+    print('unkown four class:', label)
+    return 'unkown'
+    
 
 def __get_indoor_outdoor(label):
-    pass
+    indoor_keywords = ['in\s*door', 'elevator', 'mbta']
+    if any(re.findall(word, label) for word in indoor_keywords):
+        return 'indoor'
+    
+    outdoor_keywords = ['out\s*door']
+    if any(re.findall(word, label) for word in outdoor_keywords):
+        return 'outdoor'
+    
+    
+    print('unknow indoor outdoor: ', label)
+    return 'unkown'
 
 
 if __name__ == '__main__':
