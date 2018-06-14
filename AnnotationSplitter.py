@@ -121,7 +121,7 @@ def __get_four_class(label):
     
 
 def __get_indoor_outdoor(label):
-    indoor_keywords = ['in\s*door', 'elevator', 'mbta']
+    indoor_keywords = ['in\s*door', 'elevator', 'mbta', 'computer']
     if any(re.findall(word, label) for word in indoor_keywords):
         return 'indoor'
     
