@@ -157,11 +157,11 @@ if __name__ == '__main__':
             
             if command == 'SPLIT_CLASSMAP':
                 class_map = class_mapping(splitted_annotation)
-                class_map.to_csv(path_out+'splitted.class.csv', index=False)
+                class_map.to_csv(path_out+'class_mapping.csv', index=False)
 
         elif command == 'CLASSMAP':
             class_map = class_mapping(in_annotation)
-            class_map.to_csv(path_out+'splitted.class.csv', index=False)
+            class_map.to_csv(path_out+'class_mapping.csv', index=False)
             
         
         
