@@ -62,8 +62,27 @@ def class_mapping(in_annotation):
     
     '''
     
-    pass
+    labels = in_annotation.iloc[:,3].unique()
+    mapped_list = []
+    for label in labels:
+        posture = __get_posture(label)
+        four_class = __get_four_class(label)
+        indoor_outdoor = __get_indoor_outdoor(label)
+        
+        mapped_list.append(pd.Series([label, posture, four_class, indoor_outdoor],
+                                     index=['activity','posture','four_class','indoor_outdoor']))
     
+    return pd.DataFrame(mapped_list)
+    
+def __get_posture(label):
+    pass
+
+def __get_four_class(label):
+    pass
+
+def __get_indoor_outdoor(label):
+    pass
+
 
 if __name__ == '__main__':
     if len(sys.argv) < 4:
