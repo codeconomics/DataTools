@@ -72,7 +72,8 @@ def class_mapping(in_annotation):
         indoor_outdoor = __get_indoor_outdoor(label)
         
         mapped_list.append(pd.Series([label, posture, four_class, indoor_outdoor],
-                                     index=['activity','posture','four_class','indoor_outdoor']))
+                                     index=['activity','posture','four_class',
+                                            'indoor_outdoor']))
     
     return pd.DataFrame(mapped_list)
     
@@ -85,7 +86,8 @@ def __get_posture(label):
     if any(re.findall(word, label) for word in sit_keywords):
         return 'sitting'
     
-    upright_keywords = ['stand', 'run', 'jump', 'walk', 'frisbee']
+    upright_keywords = ['stand', 'run', 'jump', 'walk', 'frisbee', 'escalator'
+                        ,'elevator', 'climb.*stair']
     if any(re.findall(word, label) for word in upright_keywords):
         return 'upright'
     
@@ -112,7 +114,7 @@ def __get_four_class(label):
         return 'sedentary'
     
     other_keywords = ['frisbee', 'sweep', 'paint', 'clean.*room', 'soccer', 
-                      'basketball', 'tennis', 'jump']
+                      'basketball', 'tennis', 'jump','packing']
     if any(re.findall(word, label) for word in other_keywords):
         return 'others'
     
@@ -121,11 +123,12 @@ def __get_four_class(label):
     
 
 def __get_indoor_outdoor(label):
-    indoor_keywords = ['in\s*door', 'elevator', 'mbta', 'computer']
+    indoor_keywords = ['in\s*door', 'elevator', 'mbta', 'computer', 'brush\s*teeth'
+                       ,'sleep','escalator','shop','cook','stairs','bed', 'typ']
     if any(re.findall(word, label) for word in indoor_keywords):
         return 'indoor'
     
-    outdoor_keywords = ['out\s*door']
+    outdoor_keywords = ['out\s*door', 'signal\s*light']
     if any(re.findall(word, label) for word in outdoor_keywords):
         return 'outdoor'
     
