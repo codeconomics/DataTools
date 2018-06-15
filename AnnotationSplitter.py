@@ -36,18 +36,18 @@ def annotation_splitter(in_annotation):
     for time_record in time_list:
         curr_time = time_record[0]
         if curr_time == last_time and time_record[2] == 'start':
-            curr_activities.append(time_record[1].lower())
+            curr_activities.append(time_record[1].lower().strip())
         else:
             if len(curr_activities) > 0 and last_time != curr_time:
                 curr_activities.sort()
-                curr_activities = list(map(str.strip, curr_activities))
                 new_label = '-'.join(curr_activities)
                 splitted_time_list.append(pd.Series([last_time, last_time, curr_time, new_label],
                                                     index=['HEADER_TIME_STAMP','START_TIME','STOP_TIME','LABEL_NAME']))
             if time_record[2] == 'start':
-                curr_activities.append(time_record[1].lower())
+                curr_activities.append(time_record[1].lower().strip())
             else:
-                curr_activities.remove(time_record[1].lower())
+                curr_activities.remove(time_record[1].lower().strip())
+                    
             last_time = curr_time
     
     # sort by start time, export to dataframe
@@ -169,7 +169,7 @@ if __name__ == '__main__':
             class_map.to_csv(path_out+'class_mapping.csv', index=False)
             
         
-        
+in_annotation=pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.annotation.csv')
         
         
         
