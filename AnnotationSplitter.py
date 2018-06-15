@@ -39,6 +39,8 @@ def annotation_splitter(in_annotation):
             curr_activities.append(time_record[1].lower())
         else:
             if len(curr_activities) > 0 and last_time != curr_time:
+                curr_activities.sort()
+                curr_activities = list(map(str.strip, curr_activities))
                 new_label = '-'.join(curr_activities)
                 splitted_time_list.append(pd.Series([last_time, last_time, curr_time, new_label],
                                                     index=['HEADER_TIME_STAMP','START_TIME','STOP_TIME','LABEL_NAME']))
