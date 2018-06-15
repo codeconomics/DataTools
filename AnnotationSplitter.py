@@ -10,6 +10,7 @@ import pandas as pd
 import sys
 import os.path
 import re
+import collections
 
 def annotation_splitter(in_annotation):
     '''
@@ -70,14 +71,15 @@ def class_mapping(in_annotation):
     
     labels = in_annotation.iloc[:,3].unique()
     mapped_list = []
-    for label in labels:        
-        mapped_list.append(pd.Series([label, 
-                                      __get_posture(label), 
-                                      __get_four_class(label), 
-                                      __get_activity_group(label),
-                                      __get_indoor_outdoor(label),
-                                      __get_activity(label),
-                                      __get_hand_gesture(label)],
+    for label in labels:  
+        activity = __get_activity(label)
+        posture = __get_posture(label)
+        four_class = __get_four_class(label)
+        ambience = __get_indoor_outdoor(label)
+        hand_gesture = __get_hand_gesture(label, activity)
+        activity_group = __get_activity_group(label, four_class)
+        mapped_list.append(pd.Series([label, posture, four_class, activity_group,
+                                      ambience, activity,hand_gesture],
                                      index=['label','posture','four_class',
                                             'activity_group','indoor_outdoor',
                                             'activity', 'hand_gesture']))
@@ -93,7 +95,7 @@ def __get_posture(label):
         return 'sitting'
     
     upright_keywords = ['stand', 'run', 'jump', 'walk', 'frisbee', 'escalator'
-                        ,'elevator', 'climb.*stair']
+                        ,'elevator', 'climb.*stair','stair']
     if any(re.findall(word, label) for word in upright_keywords):
         return 'upright'
     
@@ -101,11 +103,14 @@ def __get_posture(label):
     if any(re.findall(word, label) for word in lying_keywords):
         return 'lying'
 
-    print('unkown posture:',label)
+    #print('unkown posture:',label)
     return 'unkown'
 
 
 def __get_four_class(label):
+    if 'transition' in label:
+        return 'transition'
+    
     amb_keywords = ['walk','run','stair']
     if any(re.findall(word, label) for word in amb_keywords):
         return 'ambulation'
@@ -115,7 +120,7 @@ def __get_four_class(label):
         return 'cycling'
     
     seden_keywords = ['sit','stand','lying','typ', 'sleep', 'computer', 'still',
-                      'elevator']
+                      'elevator','text']
     if any(re.findall(word, label) for word in seden_keywords):
         return 'sedentary'
     
@@ -124,13 +129,14 @@ def __get_four_class(label):
     if any(re.findall(word, label) for word in other_keywords):
         return 'others'
     
-    print('unkown four class:', label)
+    #print('unkown four class:', label)
     return 'unkown'
     
 
 def __get_indoor_outdoor(label):
-    indoor_keywords = ['in\s*door', 'elevator', 'mbta', 'computer', 'brush\s*teeth'
-                       ,'sleep','escalator','shop','cook','stairs','bed', 'typ']
+    indoor_keywords = ['in\s*door', 'elevator', 'mbta', 'computer', r'brush\s*teeth'
+                       ,'sleep','escalator','shop','cook','stairs','bed', 'typ'
+                       ,'treadmil']
     if any(re.findall(word, label) for word in indoor_keywords):
         return 'indoor'
     
@@ -139,20 +145,181 @@ def __get_indoor_outdoor(label):
         return 'outdoor'
     
     
-    print('unknow indoor outdoor: ', label)
+    #print('unknow indoor outdoor: ', label)
     return 'unkown'
 
 
-def __get_activity_group(label):
-    pass
+def __get_activity_group(label, four_class):
+    if re.findall('sleep|lying', label):
+        return 'sleep'
+    
+    unwear_keywords = [r'take\s*off','not.*wear','unworn','unwear','non.*wear']
+    if any(re.findall(word, label) for word in unwear_keywords):
+        return 'unwear'
+    
+    return four_class
 
 
 def __get_activity(label):
-    pass
+    actions = []
+    # detect if the special verbs inside the label first
+    first_activity = ''
+    if re.findall('treadmil.*run|run.*treadmil', label):
+        first_activity = 'treadmil running'
+    elif re.findall('treadmil.*walk|walk.*treadmil', label):
+        first_activity = 'treadmil walking'
+    elif 'walk' in label:
+        first_activity = 'walking'
+    elif 'run' in label:
+        first_activity = 'running'
+    elif 'stand' in label:
+        first_activity = 'standing'
+
+    # for walk and run, detect if the speed exist
+    speed = ''
+    speed_words = {'at 5.5 mph 5% grade': ['5.5\s*mph.*5%\s*grade',
+                                           '5%\s*grade.*5.5\s*mph'],
+                   'at 1 mph':['1\s*mph'],
+                   'at 2 mph':['2\s*mph'],
+                   'at 3-3.5 mph':['3-3.5\s*mph','3\s*mph','3.5\s*mph'],
+                   'at 5.5 mph':['5.5\s*mph']}
+    
+    for key, keyword_list in speed_words.items():
+        if any(re.findall(keyword, label) for keyword in keyword_list):
+            speed = key
+            continue
+    
+    if len(speed)!=0 and len(first_activity) != 0:
+        first_activity = first_activity + speed
+    elif len(speed) !=0 and len(first_activity) == 0:
+        if speed == 'at 5.5 mph 5% grade':
+            first_activity = 'treadmill running at 5.5 mph 5% grade'
+        elif speed == 'at 1 mph':
+            first_activity = 'treadmill walking at 1 mph'
+        elif speed == 'at 2 mph':
+            first_activity = 'treadmill walking at 2 mph'
+        elif speed == 'at 3-3.5 mph':
+            first_activity = 'treadmill walking at 3-3.5 mph'
+        elif speed == 'at 5.5 mph':
+            first_activity = 'treadmill running at 5.5 mph'
+    
+    if len(first_activity) > 0:
+        actions.insert(0, first_activity)
+       
+    # detect if there are other actions at the same time
+    activities_verbs = collections.OrderedDict({'sitting':['sit'],
+                  'biking outdoor' : [r'bik.*out\s*door',r'out\s*door.*bik'],
+                  'stationary biking':['bik.*stationary',r'bik.*in\s*door|in\s*door.*bik'],
+                  'biking':['bik.*'],
+                  'frisbee':['frisbee'],
+                  'jumping jacks':['jumping jacks'],
+                  'lying on the back':['lying.*back'],
+                  'elevator up':['elevator.*up', 'up.*elevator'],
+                  'elevator down':['elevator.*down', 'down.*elevator'],
+                  'escalator up':['escalator.*up','up.*escalator'],
+                  'escalator down':['escalator.*down','down.*escalator'],
+                  'transition':['transition'],
+                  'reclining':['reclin.*'],
+                  'walking up stairs':['up.*stairs'],
+                  'walking down stairs':['down.*stairs'],
+                  'writing':['writ'],
+                  'self-paced walking':['walk'],
+                  'sweeping':['sweep'],
+                  'keyboard typing':['typ'],
+                  'folding towel':['fold.*towel'],
+                  'shelf loading or unloading':['shelf.*load','unload'],
+                  'standding for stop light':['stand.*stoplight'],
+                  'standding on train':['stand.*train'],
+                  'using vending machine': ['vend.*machine'],
+                  'texting':['text'], 'web browsing':['web browsing']})
+        
+    for key, keyword_list in activities_verbs.items():
+        if any(re.findall(keyword, label) for keyword in keyword_list):
+            actions.append(key)
+    
+    if ('elevator' in label) and not ('elevator up' in actions) and not ('elevator down' in actions):
+        actions.append('elevator')
+    
+    if ('escalator' in label) and not ('escalator up' in actions) and not ('escalator down' in actions):
+        actions.append('escalator')
+    
+    if ('stairs' in label) and not ('walking up stairs' in actions) and not ('walking down stairs' in actions):
+        actions.append('escalator')
+    
+    
+    # special match for talking
+    if any(re.findall(keyword, label) for keyword in ['talk.*phone','call']):
+        actions.append('talking with phone')
+    else:
+        if any(re.findall(keyword, label) for keyword in ['talk','tell.*story']):
+            actions.append('talking')
+        if 'phone' in label:
+            actions.append('using phone')
+    
+    activity = ' and '.join(actions)
+    
+    activity_adverbs = {'with bag':['bag'],
+                        'naturally':['natur'],
+                        'carrying a drink':['carry.*drink'],
+                        'with arms on desk':['arms.*on.*desk']
+                        }
+    
+    adverbs = []
+    
+    for key, keyword_list in activity_adverbs.items():
+        if any(re.findall(keyword, label) for keyword in keyword_list):
+            adverbs.append(key)
+    
+    if len(adverbs) != 0:
+        activity = activity + ' '+' '.join(adverbs)
+    
+    if activity == 'sitting':
+        activity = activity + ' still'
+        
+    if activity == 'standing':
+        activity = activity + ' naturally'
+    
+    if len(activity) == 0:
+        print('unkown activity: ', label)
+        return 'unkown'
+    
+    return activity
 
 
-def __get_hand_gesture(label):
-    pass
+def __get_hand_gesture(label, activity):
+    handgestures_label = {'writing':['writ'],
+                'arms on desk':['on.*desk','computer'],
+                'holding cellphone':['phone'],
+                'transition':['transition'],
+                'biking': ['bik'],
+                'carrying a drink': ['carry.*drink'],
+                'carrying a suitcase': ['carry.*suitcase'],
+                'frisbee':['frisbee'],
+                'jumping jacks':['jumping.*jacks'],
+                'keyboard typing':['typ'],
+                'sweeping':['sweep'],
+                'shelf loading or unloading':['shelf.*load','unload'],
+                'using vending machine':['vend.*machine'],
+                'still':['still','lying','sleep']}
+    for key, keyword_list in handgestures_label.items():
+        if any(re.findall(keyword, label) for keyword in keyword_list):
+            return key
+    
+    # special match for talking
+    if any(re.findall(keyword, label) for keyword in ['talk.*phone','call']):
+        return 'phone talking'
+    else:
+        if any(re.findall(keyword, label) for keyword in ['talk','tell.*story']):
+            return 'talking'
+        if any(re.findall(keyword, label) for keyword in ['phone','text']):
+            return 'using phone'
+
+    if activity == 'unkown':
+        print('unkown handgesture:', label)
+        return 'unkown'
+    
+    print('free handgesture:', label)
+    return 'free'
 
 
 if __name__ == '__main__':
@@ -183,11 +350,19 @@ if __name__ == '__main__':
         elif command == 'CLASSMAP':
             class_map = class_mapping(in_annotation)
             class_map.to_csv(path_out+'class_mapping.csv', index=False)
-            
-        
-in_annotation=pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.annotation.csv')
-        
-        
-        
+             
+    
+def test():
+    in_annotation=pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.annotation.csv')
+    splitted = annotation_splitter(in_annotation)
+    classmapping = class_mapping(splitted)
+    
+    
+    
+    
+    test_class = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.class.csv') 
+    unique_mapping = test_class.iloc[:,[2,3,4,5,6,8]].drop_duplicates() 
+    unique_mapping.to_csv('/Users/zhangzhanming/Desktop/mHealth/Test/unique_mapping.csv')
+    
         
         
