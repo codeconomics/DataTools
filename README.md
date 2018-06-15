@@ -1,5 +1,8 @@
 Read Me
 
+
+************ TimeRecordParser ************
+
 Record Format
 
 1. This tool is based on the Apple app TimeKeeper
@@ -24,3 +27,21 @@ Tool Instruction:
 2. To split the file by hour and store them in separate folders of sensor dataL
 	STANDARD/CATEGORIZE [Original File Path] [Formatted Annotation File Path] split
 3. CATEGORIZE for categorize the raw activities to Sedentary, Ambulation or Other
+
+
+************ AnnotationSplitter ************
+
+Description:
+
+1. The annotation splitter will split the annotations which overlap during the same time period
+2. The class_mapping tool will create a class mapping file showing 3 new characteristics(posture, four_class, indoor_outdoor) of the combined label after split according to time period
+
+
+Instruction:
+
+1. For splitting the annotation:
+   SPLIT [Original File Path] [Formatted Annotation File Path]
+2. For generating a class_map file from the input annotation:
+   SPLIT_CLASSMAP [Original File Path] [Formatted Annotation File Path]
+3. For splitting and generating a class_map file from the input:
+   CLASSMAP [Original File Path] [Formatted Annotation File Path]
