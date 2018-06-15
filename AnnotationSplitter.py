@@ -59,7 +59,9 @@ def annotation_splitter(in_annotation):
 
 def class_mapping(in_annotation):
     '''
-    Create a table with more features(posture, four class categorization, ambivience)
+    Create a table with more features('label','posture','four_class',
+                                      'activity_group','indoor_outdoor',
+                                      'activity', 'hand_gesture')
     of the labels of input annotation data
     
     :param pandas.DataFrame in_annotation: input annotation data
@@ -68,15 +70,17 @@ def class_mapping(in_annotation):
     
     labels = in_annotation.iloc[:,3].unique()
     mapped_list = []
-    for label in labels:
-        posture = __get_posture(label)
-        four_class = __get_four_class(label)
-        indoor_outdoor = __get_indoor_outdoor(label)
-        
-        mapped_list.append(pd.Series([label, posture, four_class, indoor_outdoor],
-                                     index=['activity','posture','four_class',
-                                            'indoor_outdoor']))
-    
+    for label in labels:        
+        mapped_list.append(pd.Series([label, 
+                                      __get_posture(label), 
+                                      __get_four_class(label), 
+                                      __get_activity_group(label),
+                                      __get_indoor_outdoor(label),
+                                      __get_activity(label),
+                                      __get_hand_gesture(label)],
+                                     index=['label','posture','four_class',
+                                            'activity_group','indoor_outdoor',
+                                            'activity', 'hand_gesture']))
     return pd.DataFrame(mapped_list)
     
 
@@ -137,6 +141,18 @@ def __get_indoor_outdoor(label):
     
     print('unknow indoor outdoor: ', label)
     return 'unkown'
+
+
+def __get_activity_group(label):
+    pass
+
+
+def __get_activity(label):
+    pass
+
+
+def __get_hand_gesture(label):
+    pass
 
 
 if __name__ == '__main__':
