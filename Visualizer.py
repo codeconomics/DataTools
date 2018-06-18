@@ -13,6 +13,8 @@ import plotly.graph_objs as go
 import sys
 import ast
 import os.path
+from plotly import tools
+
 
 def annotation_feature_grapher(featuredata, annotationdata, path_out, feature_index=None):
     """ 
@@ -44,7 +46,7 @@ def annotation_feature_grapher(featuredata, annotationdata, path_out, feature_in
     colors =  __generate_color(len(gantt_df['Resource'].unique()))
     gantt_fig = ff.create_gantt(gantt_df, group_tasks=True, bar_width=0.7, 
                                    title='Features And Annotation', index_col='Resource',
-                                   colors=colors,show_colorbar=True, width=1300)
+                                   colors=colors, width=1300, show_colorbar=True)
     
     # create line chart for selected features
     if feature_index is None:
@@ -55,16 +57,17 @@ def annotation_feature_grapher(featuredata, annotationdata, path_out, feature_in
         trace = go.Scatter(x = featuredata[featuredata.columns[0]],
                            y = featuredata[featuredata.columns[index]],
                            name = featuredata.columns[index],
-                           mode = 'lines+markers')
+                           mode = 'lines+markers',
+                           yaxis='y2')
         traces.append(trace)
     
     newdata = gantt_fig['data']
     for line in newdata:
         if 'y' in line:
             line['y'] = [line['y'][0]+5,line['y'][1]+5]
-        if 'hoverinfo' in line:
-            line['text'] = line['name']
-            line['hoverinfo'] = 'text'
+    #    if 'hoverinfo' in line:
+    #        line['text'] = line['name']
+    #        line['hoverinfo'] = 'text'
             
     gantt_fig['data'] = newdata+traces
     
@@ -85,7 +88,18 @@ def annotation_feature_grapher(featuredata, annotationdata, path_out, feature_in
     
     if os.path.isdir(path_out):
         path_out = path_out + '/'
-        
+    
+    yaxis2=dict(
+        titlefont=dict(
+            color='rgb(148, 103, 189)'
+        ),
+        tickfont=dict(
+            color='rgb(148, 103, 189)'
+        ),
+        overlaying='y',
+        side='right'
+    )
+    gantt_fig['layout'].update({'yaxis2': yaxis2})   
     return py.plot(gantt_fig, filename=(path_out+'test.html'))
  
 def __generate_color(n):
