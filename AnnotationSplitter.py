@@ -73,9 +73,9 @@ def class_mapping(in_annotation):
     mapped_list = []
     for label in labels:  
         activity = __get_activity(label)
-        posture = __get_posture(label)
+        posture = __get_posture(label, activity)
         four_class = __get_four_class(label)
-        ambience = __get_indoor_outdoor(label)
+        ambience = __get_indoor_outdoor(label, activity)
         hand_gesture = __get_hand_gesture(label, activity)
         activity_group = __get_activity_group(label, four_class)
         mapped_list.append(pd.Series([label, posture, four_class, activity_group,
@@ -86,7 +86,7 @@ def class_mapping(in_annotation):
     return pd.DataFrame(mapped_list)
     
 
-def __get_posture(label):
+def __get_posture(label, activity):
     if label == 'transition':
         return label
     
@@ -95,15 +95,15 @@ def __get_posture(label):
         return 'sitting'
     
     upright_keywords = ['stand', 'run', 'jump', 'walk', 'frisbee', 'escalator'
-                        ,'elevator', 'climb.*stair','stair']
-    if any(re.findall(word, label) for word in upright_keywords):
+                        ,'elevator', 'climb.*stair','stair', 'treadmill',
+                        'vend.*machine', 'shelf reloading or unloading','sweep']
+    if any((re.findall(word, label) or re.findall(word, activity)) for word in upright_keywords):
         return 'upright'
     
     lying_keywords = ['lying']
-    if any(re.findall(word, label) for word in lying_keywords):
+    if any((re.findall(word, label) or re.findall(word, activity)) for word in lying_keywords):
         return 'lying'
 
-    #print('unkown posture:',label)
     return 'unkown'
 
 
@@ -120,7 +120,7 @@ def __get_four_class(label):
         return 'cycling'
     
     seden_keywords = ['sit','stand','lying','typ', 'sleep', 'computer', 'still',
-                      'elevator','text']
+                      'elevator','text','wait']
     if any(re.findall(word, label) for word in seden_keywords):
         return 'sedentary'
     
@@ -133,19 +133,19 @@ def __get_four_class(label):
     return 'unkown'
     
 
-def __get_indoor_outdoor(label):
+def __get_indoor_outdoor(label, activity):
     indoor_keywords = ['in\s*door', 'elevator', 'mbta', 'computer', r'brush\s*teeth'
                        ,'sleep','escalator','shop','cook','stairs','bed', 'typ'
-                       ,'treadmil']
-    if any(re.findall(word, label) for word in indoor_keywords):
+                       ,'treadmill', 'arm.*on desk', 'stationary biking', 'lying','sweep']
+    if any((re.findall(word, label) or re.findall(word, activity)) for word in indoor_keywords):
         return 'indoor'
     
-    outdoor_keywords = ['out\s*door', 'signal\s*light']
-    if any(re.findall(word, label) for word in outdoor_keywords):
+    outdoor_keywords = ['out\s*door', 'signal\s*light', 'city','stop.*light']
+    if any((re.findall(word, label) or re.findall(word, activity)) for word in outdoor_keywords):
         return 'outdoor'
     
     
-    #print('unknow indoor outdoor: ', label)
+    #print('unknow indoor outdoor: ', label, activity)
     return 'unkown'
 
 
@@ -163,54 +163,36 @@ def __get_activity_group(label, four_class):
 def __get_activity(label):
     actions = []
     # detect if the special verbs inside the label first
+    # for walk and run, detect if the speed or climbing stairs exist
     first_activity = ''
-    if re.findall('treadmil.*run|run.*treadmil', label):
-        first_activity = 'treadmil running'
-    elif re.findall('treadmil.*walk|walk.*treadmil', label):
-        first_activity = 'treadmil walking'
-    elif 'walk' in label:
-        first_activity = 'walking'
-    elif 'run' in label:
-        first_activity = 'running'
-    elif 'stand' in label:
-        first_activity = 'standing'
-
-    # for walk and run, detect if the speed exist
-    speed = ''
-    speed_words = {'at 5.5 mph 5% grade': ['5.5\s*mph.*5%\s*grade',
+    special_words = {'treadmill running at 5.5 mph 5% grade': ['5.5\s*mph.*5%\s*grade',
                                            '5%\s*grade.*5.5\s*mph'],
-                   'at 1 mph':['1\s*mph'],
-                   'at 2 mph':['2\s*mph'],
-                   'at 3-3.5 mph':['3-3.5\s*mph','3\s*mph','3.5\s*mph'],
-                   'at 5.5 mph':['5.5\s*mph']}
+                   'treadmill walking at 1 mph':['1\s*mph'],
+                   'treadmill walking at 2 mph':['2\s*mph'],
+                   'treadmill walking at 3-3.5 mph':['3-3.5\s*mph','3\s*mph','3.5\s*mph'],
+                   'treadmill running at 5.5 mph':['5.5\s*mph'],
+                   'walking up stairs':['up.*stairs'],
+                   'walking down stairs':['down.*stairs']}
     
-    for key, keyword_list in speed_words.items():
+    for key, keyword_list in special_words.items():
         if any(re.findall(keyword, label) for keyword in keyword_list):
-            speed = key
+            first_activity = key
             continue
     
-    if len(speed)!=0 and len(first_activity) != 0:
-        first_activity = first_activity + speed
-    elif len(speed) !=0 and len(first_activity) == 0:
-        if speed == 'at 5.5 mph 5% grade':
-            first_activity = 'treadmill running at 5.5 mph 5% grade'
-        elif speed == 'at 1 mph':
-            first_activity = 'treadmill walking at 1 mph'
-        elif speed == 'at 2 mph':
-            first_activity = 'treadmill walking at 2 mph'
-        elif speed == 'at 3-3.5 mph':
-            first_activity = 'treadmill walking at 3-3.5 mph'
-        elif speed == 'at 5.5 mph':
-            first_activity = 'treadmill running at 5.5 mph'
-    
+    if len(first_activity) == 0:
+        if 'walk' in label:
+            first_activity = 'self-paced walking'
+        elif 'run' in label or 'jog' in label:
+            first_activity = 'running'
+
     if len(first_activity) > 0:
         actions.insert(0, first_activity)
        
     # detect if there are other actions at the same time
     activities_verbs = collections.OrderedDict({'sitting':['sit'],
-                  'biking outdoor' : [r'bik.*out\s*door',r'out\s*door.*bik'],
+                  'standing':['stand'],
+                  'biking outdoor' : [r'bik.*out\s*door',r'out\s*door.*bik', '300.*kpm.*bik'],
                   'stationary biking':['bik.*stationary',r'bik.*in\s*door|in\s*door.*bik'],
-                  'biking':['bik.*'],
                   'frisbee':['frisbee'],
                   'jumping jacks':['jumping jacks'],
                   'lying on the back':['lying.*back'],
@@ -220,22 +202,22 @@ def __get_activity(label):
                   'escalator down':['escalator.*down','down.*escalator'],
                   'transition':['transition'],
                   'reclining':['reclin.*'],
-                  'walking up stairs':['up.*stairs'],
-                  'walking down stairs':['down.*stairs'],
                   'writing':['writ'],
-                  'self-paced walking':['walk'],
                   'sweeping':['sweep'],
                   'keyboard typing':['typ'],
                   'folding towel':['fold.*towel'],
                   'shelf loading or unloading':['shelf.*load','unload'],
-                  'standding for stop light':['stand.*stoplight'],
-                  'standding on train':['stand.*train'],
                   'using vending machine': ['vend.*machine'],
                   'texting':['text'], 'web browsing':['web browsing']})
         
     for key, keyword_list in activities_verbs.items():
         if any(re.findall(keyword, label) for keyword in keyword_list):
             actions.append(key)
+    
+    # deal with some overlap activities 
+    
+    if ('bik' in label) and not ('biking outdoor' in actions) and not ('stationary biking' in actions):
+        actions.append('biking')
     
     if ('elevator' in label) and not ('elevator up' in actions) and not ('elevator down' in actions):
         actions.append('elevator')
@@ -261,7 +243,9 @@ def __get_activity(label):
     activity_adverbs = {'with bag':['bag'],
                         'naturally':['natur'],
                         'carrying a drink':['carry.*drink'],
-                        'with arms on desk':['arms.*on.*desk']
+                        'with arms on desk':['arms.*on.*desk'],
+                        'on train':['on train'],
+                        'for stop light':['for.*stop.*light']
                         }
     
     adverbs = []
@@ -280,7 +264,7 @@ def __get_activity(label):
         activity = activity + ' naturally'
     
     if len(activity) == 0:
-        print('unkown activity: ', label)
+        #print('unkown activity: ', label)
         return 'unkown'
     
     return activity
@@ -292,7 +276,7 @@ def __get_hand_gesture(label, activity):
                 'holding cellphone':['phone'],
                 'transition':['transition'],
                 'biking': ['bik'],
-                'carrying a drink': ['carry.*drink'],
+                'carrying a drink': ['drink'],
                 'carrying a suitcase': ['carry.*suitcase'],
                 'frisbee':['frisbee'],
                 'jumping jacks':['jumping.*jacks'],
@@ -300,7 +284,9 @@ def __get_hand_gesture(label, activity):
                 'sweeping':['sweep'],
                 'shelf loading or unloading':['shelf.*load','unload'],
                 'using vending machine':['vend.*machine'],
-                'still':['still','lying','sleep']}
+                'still':['still','lying','sleep'],
+                'folding towels':['fold.*towel'],
+                'laundry':['laundry']}
     for key, keyword_list in handgestures_label.items():
         if any(re.findall(keyword, label) for keyword in keyword_list):
             return key
@@ -315,10 +301,8 @@ def __get_hand_gesture(label, activity):
             return 'using phone'
 
     if activity == 'unkown':
-        print('unkown handgesture:', label)
         return 'unkown'
     
-    print('free handgesture:', label)
     return 'free'
 
 
@@ -352,14 +336,10 @@ if __name__ == '__main__':
             class_map.to_csv(path_out+'class_mapping.csv', index=False)
              
     
-def test():
+def __test():
     in_annotation=pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.annotation.csv')
     splitted = annotation_splitter(in_annotation)
-    classmapping = class_mapping(splitted)
-    
-    
-    
-    
+    classmapping = class_mapping(splitted)  
     test_class = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.class.csv') 
     unique_mapping = test_class.iloc[:,[2,3,4,5,6,8]].drop_duplicates() 
     unique_mapping.to_csv('/Users/zhangzhanming/Desktop/mHealth/Test/unique_mapping.csv')
