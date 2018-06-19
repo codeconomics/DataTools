@@ -34,6 +34,8 @@ def annotation_feature_grapher(featuredata, annotationdata, path_out, feature_in
     """
     if isinstance(featuredata, str):
         featuredata = pd.read_csv(featuredata)     
+    elif featuredata is None:
+        featuredata = None
     if isinstance(annotationdata, str):
         annotationdata = pd.read_csv(annotationdata)
     if isinstance(feature_index, str):
@@ -49,58 +51,60 @@ def annotation_feature_grapher(featuredata, annotationdata, path_out, feature_in
                                    colors=colors, width=1300, show_colorbar=True)
     
     # create line chart for selected features
-    if feature_index is None:
-        feature_index = range(2,17)
-    
-    traces = []
-    for index in feature_index:
-        trace = go.Scatter(x = featuredata[featuredata.columns[0]],
-                           y = featuredata[featuredata.columns[index]],
-                           name = featuredata.columns[index],
-                           mode = 'lines+markers',
-                           yaxis='y2')
-        traces.append(trace)
-    
-    newdata = gantt_fig['data']
-    for line in newdata:
-        if 'y' in line:
-            line['y'] = [line['y'][0]+5,line['y'][1]+5]
-    #    if 'hoverinfo' in line:
-    #        line['text'] = line['name']
-    #        line['hoverinfo'] = 'text'
-            
-    gantt_fig['data'] = newdata+traces
-    
-    # move all the labels up
-    newshape = gantt_fig['layout']['shapes']
-    for label in newshape:
-        label['y0'] +=5
-        label['y1'] +=5
-        label['opacity'] = 0.5
+    if featuredata is not None:
+        if feature_index is None:
+            feature_index = range(2,17)
         
-    gantt_fig['layout']['shapes'] = newshape
-    newyaxis = gantt_fig['layout']['yaxis']
-    newrange = newyaxis['range']
-    tickvals = newyaxis['tickvals']
-    newyaxis['tickvals'] = [x + 5 for x in tickvals ]
-    newyaxis['range'] = [newrange[0], newrange[1]+5]
-    gantt_fig['layout']['yaxis'] = newyaxis
+        traces = []
+        for index in feature_index:
+            trace = go.Scatter(x = featuredata[featuredata.columns[0]],
+                            y = featuredata[featuredata.columns[index]],
+                            name = featuredata.columns[index],
+                            mode = 'lines+markers',
+                            yaxis='y2')
+            traces.append(trace)
+    
+        newdata = gantt_fig['data']
+        for line in newdata:
+            if 'y' in line:
+                line['y'] = [line['y'][0]+5,line['y'][1]+5]
+        #    if 'hoverinfo' in line:
+        #        line['text'] = line['name']
+        #        line['hoverinfo'] = 'text'
+                
+        gantt_fig['data'] = newdata+traces
+    
+        # move all the labels up
+        newshape = gantt_fig['layout']['shapes']
+        for label in newshape:
+            label['y0'] +=5
+            label['y1'] +=5
+            label['opacity'] = 0.5
+            
+        gantt_fig['layout']['shapes'] = newshape
+        newyaxis = gantt_fig['layout']['yaxis']
+        newrange = newyaxis['range']
+        tickvals = newyaxis['tickvals']
+        newyaxis['tickvals'] = [x + 5 for x in tickvals ]
+        newyaxis['range'] = [newrange[0], newrange[1]+5]
+        gantt_fig['layout']['yaxis'] = newyaxis
     
     if os.path.isdir(path_out):
         path_out = path_out + '/'
     
-    yaxis2=dict(
-        titlefont=dict(
-            color='rgb(148, 103, 189)'
-        ),
-        tickfont=dict(
-            color='rgb(148, 103, 189)'
-        ),
-        overlaying='y',
-        side='right'
-    )
-    gantt_fig['layout'].update({'yaxis2': yaxis2})   
-    return py.plot(gantt_fig, filename=(path_out+'test.html'))
+    if featuredata is not None:
+        yaxis2=dict(
+            titlefont=dict(
+                color='rgb(148, 103, 189)'
+            ),
+            tickfont=dict(
+                color='rgb(148, 103, 189)'
+            ),
+            overlaying='y',
+            side='right'
+        )
+        gantt_fig['layout'].update({'yaxis2': yaxis2})   
+    return py.plot(gantt_fig, filename=(path_out+'feature_annotation_graph.html'))
  
 def __generate_color(n):
     colors = []
