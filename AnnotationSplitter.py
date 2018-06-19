@@ -15,20 +15,20 @@ import collections
 def annotation_splitter(in_annotation):
     '''
     Combine overlapped labels and split them according to time
-    
+
     :param pandas.DataFrame in_annotation: the raw annotation to split
     '''
-    
+
     time_list = []
     # iterate through the annotation data, put (start time/end time, label name
     # start/end, index) to a list
     for index, series in in_annotation.iterrows():
-        time_list.append((pd.to_datetime(series[1]), 
+        time_list.append((pd.to_datetime(series[1]),
                           series[3],'start',index))
-        time_list.append((pd.to_datetime(series[2]), 
+        time_list.append((pd.to_datetime(series[2]),
                           series[3],'end',index))
     time_list.sort(key=lambda tup:tup[0])# sort the list according to time
-    
+
     # iterate through the time list, detect overlap. If exist, split and concatenate them
     curr_activities = []
     splitted_time_list = []
@@ -48,13 +48,13 @@ def annotation_splitter(in_annotation):
                 curr_activities.append(time_record[1].lower().strip())
             else:
                 curr_activities.remove(time_record[1].lower().strip())
-                    
+
             last_time = curr_time
-    
+
     # sort by start time, export to dataframe
     splitted_time_list.sort(key=lambda series: series['START_TIME'])
     splitted_annotation = pd.DataFrame(splitted_time_list)
-    
+
     return splitted_annotation
 
 
@@ -64,14 +64,14 @@ def class_mapping(in_annotation):
                                       'activity_group','indoor_outdoor',
                                       'activity', 'hand_gesture')
     of the labels of input annotation data
-    
+
     :param pandas.DataFrame in_annotation: input annotation data
-    
+
     '''
-    
+
     labels = in_annotation.iloc[:,3].unique()
     mapped_list = []
-    for label in labels:  
+    for label in labels:
         activity = __get_activity(label)
         posture = __get_posture(label, activity)
         four_class = __get_four_class(label)
@@ -84,22 +84,22 @@ def class_mapping(in_annotation):
                                             'activity_group','indoor_outdoor',
                                             'activity', 'hand_gesture']))
     return pd.DataFrame(mapped_list)
-    
+
 
 def __get_posture(label, activity):
     if label == 'transition':
         return label
-    
+
     sit_keywords = ['sit','bik','reclin']
     if any(re.findall(word, label) for word in sit_keywords):
         return 'sitting'
-    
+
     upright_keywords = ['stand', 'run', 'jump', 'walk', 'frisbee', 'escalator'
                         ,'elevator', 'climb.*stair','stair', 'treadmill',
                         'vend.*machine', 'shelf reloading or unloading','sweep']
     if any((re.findall(word, label) or re.findall(word, activity)) for word in upright_keywords):
         return 'upright'
-    
+
     lying_keywords = ['lying']
     if any((re.findall(word, label) or re.findall(word, activity)) for word in lying_keywords):
         return 'lying'
@@ -110,28 +110,28 @@ def __get_posture(label, activity):
 def __get_four_class(label):
     if 'transition' in label:
         return 'transition'
-    
+
     amb_keywords = ['walk','run','stair']
     if any(re.findall(word, label) for word in amb_keywords):
         return 'ambulation'
-    
+
     cyc_keywords = ['cycl','bik']
     if any(re.findall(word, label) for word in cyc_keywords):
         return 'cycling'
-    
+
     seden_keywords = ['sit','stand','lying','typ', 'sleep', 'computer', 'still',
                       'elevator','text','wait']
     if any(re.findall(word, label) for word in seden_keywords):
         return 'sedentary'
-    
-    other_keywords = ['frisbee', 'sweep', 'paint', 'clean.*room', 'soccer', 
+
+    other_keywords = ['frisbee', 'sweep', 'paint', 'clean.*room', 'soccer',
                       'basketball', 'tennis', 'jump','packing']
     if any(re.findall(word, label) for word in other_keywords):
         return 'others'
-    
+
     #print('unkown four class:', label)
     return 'unkown'
-    
+
 
 def __get_indoor_outdoor(label, activity):
     indoor_keywords = ['in\s*door', 'elevator', 'mbta', 'computer', r'brush\s*teeth'
@@ -139,12 +139,12 @@ def __get_indoor_outdoor(label, activity):
                        ,'treadmill', 'arm.*on desk', 'stationary biking', 'lying','sweep']
     if any((re.findall(word, label) or re.findall(word, activity)) for word in indoor_keywords):
         return 'indoor'
-    
+
     outdoor_keywords = ['out\s*door', 'signal\s*light', 'city','stop.*light']
     if any((re.findall(word, label) or re.findall(word, activity)) for word in outdoor_keywords):
         return 'outdoor'
-    
-    
+
+
     #print('unknow indoor outdoor: ', label, activity)
     return 'unkown'
 
@@ -152,11 +152,11 @@ def __get_indoor_outdoor(label, activity):
 def __get_activity_group(label, four_class):
     if re.findall('sleep|lying', label):
         return 'sleep'
-    
+
     unwear_keywords = [r'take\s*off','not.*wear','unworn','unwear','non.*wear']
     if any(re.findall(word, label) for word in unwear_keywords):
         return 'unwear'
-    
+
     return four_class
 
 
@@ -173,12 +173,12 @@ def __get_activity(label):
                    'treadmill running at 5.5 mph':['5.5\s*mph'],
                    'walking up stairs':['up.*stairs'],
                    'walking down stairs':['down.*stairs']}
-    
+
     for key, keyword_list in special_words.items():
         if any(re.findall(keyword, label) for keyword in keyword_list):
             first_activity = key
             continue
-    
+
     if len(first_activity) == 0:
         if 'walk' in label:
             first_activity = 'self-paced walking'
@@ -187,7 +187,7 @@ def __get_activity(label):
 
     if len(first_activity) > 0:
         actions.insert(0, first_activity)
-       
+
     # detect if there are other actions at the same time
     activities_verbs = collections.OrderedDict({'sitting':['sit'],
                   'standing':['stand'],
@@ -209,26 +209,26 @@ def __get_activity(label):
                   'shelf loading or unloading':['shelf.*load','unload'],
                   'using vending machine': ['vend.*machine'],
                   'texting':['text'], 'web browsing':['web browsing']})
-        
+
     for key, keyword_list in activities_verbs.items():
         if any(re.findall(keyword, label) for keyword in keyword_list):
             actions.append(key)
-    
-    # deal with some overlap activities 
-    
+
+    # deal with some overlap activities
+
     if ('bik' in label) and not ('biking outdoor' in actions) and not ('stationary biking' in actions):
         actions.append('biking')
-    
+
     if ('elevator' in label) and not ('elevator up' in actions) and not ('elevator down' in actions):
         actions.append('elevator')
-    
+
     if ('escalator' in label) and not ('escalator up' in actions) and not ('escalator down' in actions):
         actions.append('escalator')
-    
+
     if ('stairs' in label) and not ('walking up stairs' in actions) and not ('walking down stairs' in actions):
         actions.append('escalator')
-    
-    
+
+
     # special match for talking
     if any(re.findall(keyword, label) for keyword in ['talk.*phone','call']):
         actions.append('talking with phone')
@@ -237,9 +237,9 @@ def __get_activity(label):
             actions.append('talking')
         if 'phone' in label:
             actions.append('using phone')
-    
+
     activity = ' and '.join(actions)
-    
+
     activity_adverbs = {'with bag':['bag'],
                         'naturally':['natur'],
                         'carrying a drink':['carry.*drink'],
@@ -247,26 +247,26 @@ def __get_activity(label):
                         'on train':['on train'],
                         'for stop light':['for.*stop.*light']
                         }
-    
+
     adverbs = []
-    
+
     for key, keyword_list in activity_adverbs.items():
         if any(re.findall(keyword, label) for keyword in keyword_list):
             adverbs.append(key)
-    
+
     if len(adverbs) != 0:
         activity = activity + ' '+' '.join(adverbs)
-    
+
     if activity == 'sitting':
         activity = activity + ' still'
-        
+
     if activity == 'standing':
         activity = activity + ' naturally'
-    
+
     if len(activity) == 0:
         #print('unkown activity: ', label)
         return 'unkown'
-    
+
     return activity
 
 
@@ -290,7 +290,7 @@ def __get_hand_gesture(label, activity):
     for key, keyword_list in handgestures_label.items():
         if any(re.findall(keyword, label) for keyword in keyword_list):
             return key
-    
+
     # special match for talking
     if any(re.findall(keyword, label) for keyword in ['talk.*phone','call']):
         return 'phone talking'
@@ -302,7 +302,7 @@ def __get_hand_gesture(label, activity):
 
     if activity == 'unkown':
         return 'unkown'
-    
+
     return 'free'
 
 
@@ -310,7 +310,7 @@ if __name__ == '__main__':
     if len(sys.argv) < 4:
         print('INSTRUCTION: \n'+
               'For splitting: \n SPLIT [Original File Path] [Formatted Annotation File Path] \n' +
-              'For splitting and generating a class mapping file: \n' + 
+              'For splitting and generating a class mapping file: \n' +
               'SPLIT_CLASSMAP [Original File Path] [Formatted Annotation File Path]\n' +
               'For generating a class mapping file: \n' +
               'CLASSMAP [Original File Path] [Formatted Annotation File Path]')
@@ -320,13 +320,13 @@ if __name__ == '__main__':
         path_out = sys.argv[3]
         if os.path.isdir(path_out):
             path_out = path_out + '/'
-        
+
         in_annotation = pd.read_csv(path_in)
 
         if 'SPLIT' in command:
             splitted_annotation = annotation_splitter(in_annotation)
             splitted_annotation.to_csv(path_out+'splitted.annotation.csv', index=False)
-            
+
             if command == 'SPLIT_CLASSMAP':
                 class_map = class_mapping(splitted_annotation)
                 class_map.to_csv(path_out+'class_mapping.csv', index=False)
@@ -334,15 +334,12 @@ if __name__ == '__main__':
         elif command == 'CLASSMAP':
             class_map = class_mapping(in_annotation)
             class_map.to_csv(path_out+'class_mapping.csv', index=False)
-             
-    
+
+
 def __test():
     in_annotation=pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.annotation.csv')
     splitted = annotation_splitter(in_annotation)
-    classmapping = class_mapping(splitted)  
-    test_class = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.class.csv') 
-    unique_mapping = test_class.iloc[:,[2,3,4,5,6,8]].drop_duplicates() 
+    classmapping = class_mapping(splitted)
+    test_class = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.class.csv')
+    unique_mapping = test_class.iloc[:,[2,3,4,5,6,8]].drop_duplicates()
     unique_mapping.to_csv('/Users/zhangzhanming/Desktop/mHealth/Test/unique_mapping.csv')
-    
-        
-        
