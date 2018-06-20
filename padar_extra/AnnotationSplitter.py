@@ -104,7 +104,7 @@ def __get_posture(label, activity):
     if any((re.findall(word, label) or re.findall(word, activity)) for word in lying_keywords):
         return 'lying'
 
-    return 'unkown'
+    return 'unknown'
 
 
 def __get_four_class(label):
@@ -129,8 +129,8 @@ def __get_four_class(label):
     if any(re.findall(word, label) for word in other_keywords):
         return 'others'
 
-    #print('unkown four class:', label)
-    return 'unkown'
+    #print('unknown four class:', label)
+    return 'unknown'
 
 
 def __get_indoor_outdoor(label, activity):
@@ -146,7 +146,7 @@ def __get_indoor_outdoor(label, activity):
 
 
     #print('unknow indoor outdoor: ', label, activity)
-    return 'unkown'
+    return 'unknown'
 
 
 def __get_activity_group(label, four_class):
@@ -264,8 +264,8 @@ def __get_activity(label):
         activity = activity + ' naturally'
 
     if len(activity) == 0:
-        #print('unkown activity: ', label)
-        return 'unkown'
+        #print('unknown activity: ', label)
+        return 'unknown'
 
     return activity
 
@@ -300,8 +300,8 @@ def __get_hand_gesture(label, activity):
         if any(re.findall(keyword, label) for keyword in ['phone','text']):
             return 'using phone'
 
-    if activity == 'unkown':
-        return 'unkown'
+    if activity == 'unknown':
+        return 'unknown'
 
     return 'free'
 
