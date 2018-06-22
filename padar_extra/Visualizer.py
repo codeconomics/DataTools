@@ -16,20 +16,24 @@ import os.path
 from plotly import tools
 
 
-def annotation_feature_grapher(featuredata, annotationdata, path_out, feature_index=None):
+def annotation_feature_grapher(featuredata, annotationdata, path_out=None, feature_index=None, return_fig=False):
     """
 
-    Create a figure with selected features(if no feature index is passed, select all Features
-     by default), and annotation. Create html file in designated file path
+    Create a figure with selected features(if no feature index is passed, select 
+    all Features by default), and annotation. if not return figure object, 
+    create html file in designated file path
 
     Args:
         featuredata: pandas.DataFrame containing feature data
         annotationdata: pandas.DataFrame containing annotations
         pathout: path to write the html figure file
         feature_index: the index of the features to select in featuredata dataframe
+        return_fig: if return the figure object
 
     Returns:
-        the url of the created figure
+        if return_fig == False: the url of the created figure 
+        else return the figure object
+        
 
     """
     if isinstance(featuredata, str):
@@ -88,10 +92,7 @@ def annotation_feature_grapher(featuredata, annotationdata, path_out, feature_in
         newyaxis['tickvals'] = [x + 5 for x in tickvals ]
         newyaxis['range'] = [newrange[0], newrange[1]+5]
         gantt_fig['layout']['yaxis'] = newyaxis
-
-    if os.path.isdir(path_out):
-        path_out = path_out + '/'
-
+    
     if featuredata is not None:
         yaxis2=dict(
             titlefont=dict(
@@ -104,7 +105,59 @@ def annotation_feature_grapher(featuredata, annotationdata, path_out, feature_in
             side='right'
         )
         gantt_fig['layout'].update({'yaxis2': yaxis2})
+
+    if return_fig:
+        return gantt_fig
+    
+    if os.path.isdir(path_out):
+        path_out = path_out + '/'
+
     return py.plot(gantt_fig, filename=(path_out+'feature_annotation_graph.html'))
+
+def acc_grapher(data, path_out=None, return_fig = False):
+    """
+    
+    Create a figure with acceleration data, if return_fig is true, return the
+    figure object, otherwise return the url
+    
+    Args:
+        data: pandas.Dataframe containing acceleration data
+        path_out: string the path to write
+        return_fig: if return the figure object
+    
+    """
+    
+    x = go.Scatter(
+            y=data['X_ACCELERATION_METERS_PER_SECOND_SQUARED'],
+            x=data['HEADER_TIME_STAMP'],
+            name='x',
+            mode='lines')
+
+    y = go.Scatter(
+            y=data['Y_ACCELERATION_METERS_PER_SECOND_SQUARED'],
+            x=data['HEADER_TIME_STAMP'],
+            name='y',
+            mode='lines')
+
+    z = go.Scatter(
+            y=data['Z_ACCELERATION_METERS_PER_SECOND_SQUARED'],
+            x=data['HEADER_TIME_STAMP'],
+            name='z',
+            mode='lines')
+
+    layout=dict(yaxis = dict(fixedrange=True, range=[-5,5]),
+                xaxis = dict(tickformat='%H:%M:%S',
+                             nticks=5))
+    fig = dict(data=[x,y,z], layout=layout)
+    
+    if return_fig:
+        return fig
+    
+    if os.path.isdir(path_out):
+        path_out = path_out + '/'
+
+    return py.plot(fig, filename=path_out+'acc_graph.html')
+
 
 def __generate_color(n):
     colors = []
