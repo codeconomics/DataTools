@@ -13,23 +13,20 @@ import pandas as pd
 from dash.dependencies import Input, Output
 import Visualizer
 import Monitor
+from collections import OrderedDict
+from plotly import tools
+import datetime
 
 SAMPLING_RATE = 80
-DISPLAY_RANGE = 20
-TIME_PERIOD = 200
+DISPLAY_RANGE = 76.8
+TIME_PERIOD = 500
+FEATURE_TIME = 12.8
 
 app = dash.Dash('Live Stream Feature')
 monitor = Monitor.Monitor()
 db = Monitor.AccDataBase(monitor)
 monitor.register_observer(db)
 monitor.listen()
-# =============================================================================
-# featuredata = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/Derived/Preprocessed/2015/10/08/14/ActigraphGT9X-PostureAndActivity-NA.TAS1E23150066-PostureAndActivity.2015-10-08-14-00-00-000-M0400.feature.csv')
-# annotationdata = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/MasterSynced/2015/10/08/14/SPADESInLab.alvin-SPADESInLab.2015-10-08-14-10-41-252-M0400.annotation.csv')
-# rawdata = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/MasterSynced/2015/10/08/14/ActigraphGT9X-AccelerationCalibrated-NA.TAS1E23150066-AccelerationCalibrated.2015-10-08-14-00-00-000-M0400.sensor.csv')
-# 
-# =============================================================================
-
 
 app.layout = html.Div([html.H2('Streaming Features'),
                        html.Div([
@@ -38,51 +35,95 @@ app.layout = html.Div([html.H2('Streaming Features'),
                        dcc.Interval(id='time-update', interval=TIME_PERIOD, n_intervals=0)])
 
 
-@app.callback(Output('acceleration-graph','figure'), 
+@app.callback(Output('acceleration-graph','figure'),
               [Input('time-update','n_intervals')])
 def gen_acceleration_graph(count):
-# =============================================================================
-#     if count*TIME_PERIOD/1000 <= DISPLAY_RANGE:
-#         start = 0
-#         end = int(count*TIME_PERIOD/1000*SAMPLING_RATE)
-#     else:
-#         start = int((count*TIME_PERIOD/1000 - DISPLAY_RANGE)*SAMPLING_RATE)
-#         end = int(count*TIME_PERIOD/1000*SAMPLING_RATE)
-#         if end >= len(rawdata.index):
-#             end = len(rawdata.index) -1
-# =============================================================================
-    end = len(db.rawdata.index)-1
-    start = end - DISPLAY_RANGE*SAMPLING_RATE
-    if start < 0:
-        start = 0
-    
-    graph_data = db.rawdata[start:end]
 
-    if start != end and len(graph_data.index) < DISPLAY_RANGE*SAMPLING_RATE:
-        diff = DISPLAY_RANGE*SAMPLING_RATE-graph_data.shape[0]
-        diff_range = pd.date_range(end=graph_data.iloc[0, 0],
+    acc_end = len(db.rawdata.index)
+    acc_start = int(acc_end - DISPLAY_RANGE*SAMPLING_RATE)
+
+    if acc_start < 0:
+        acc_start = 0
+
+    acc_data = db.rawdata[acc_start:acc_end]
+
+    if acc_start != acc_end and len(acc_data.index) < DISPLAY_RANGE*SAMPLING_RATE:
+        diff = DISPLAY_RANGE*SAMPLING_RATE-acc_data.shape[0]
+        diff_range = pd.date_range(end=acc_data.iloc[0, 0],
                                    periods=diff,
                                    freq=str(int(1000/SAMPLING_RATE))+'L')
-        diff_df = pd.DataFrame(data={graph_data.columns[0]: diff_range.values, 
-                                     graph_data.columns[1]: [None] * diff_range.shape[0], 
-                                     graph_data.columns[2]: [None] * diff_range.shape[0], 
-                                     graph_data.columns[3]: [None] * diff_range.shape[0]})
-        
-        graph_data = pd.concat([diff_df, graph_data])
-     
+        diff_df = pd.DataFrame(data={acc_data.columns[0]: diff_range.values,
+                                     acc_data.columns[1]: [None] * diff_range.shape[0],
+                                     acc_data.columns[2]: [None] * diff_range.shape[0],
+                                     acc_data.columns[3]: [None] * diff_range.shape[0]})
 
-    
-    
-    return Visualizer.acc_grapher(graph_data,return_fig=True)
-    
+        acc_data = pd.concat([diff_df, acc_data])
+
+    #print(acc_data.tail())
+    acc_fig = Visualizer.acc_grapher(acc_data,return_fig=True)
+
+    #return acc_fig
+
+
+    feature_end = len(db.featuredata.index)
+    feature_start = int(feature_end - DISPLAY_RANGE/FEATURE_TIME)
+
+    if feature_start < 0:
+        feature_start = 0
+    if feature_end < 0:
+        feature_end = 0
+
+    #print(feature_start, feature_end, db.featuredata)
+
+    feature_data = db.featuredata.iloc[feature_start:feature_end,:]
+
+    if feature_start != feature_end and len(feature_data.index) < DISPLAY_RANGE/FEATURE_TIME:
+
+        diff = int(DISPLAY_RANGE/FEATURE_TIME) - feature_data.shape[0]
+        diff_range_stop = pd.date_range(end=feature_data.iloc[0,0],
+                                   periods=diff,
+                                   freq=(str(FEATURE_TIME)+'S'))
+        diff_range_start = pd.date_range(end=feature_data.iloc[0,0],
+                                   periods=diff+1,
+                                   freq=(str(FEATURE_TIME)+'S'))[0:diff]
+
+        data_dict = OrderedDict()
+        for column_name in feature_data.columns:
+            data_dict[column_name] = [None] * diff_range_start.shape[0]
+
+        data_dict[feature_data.columns[0]] = diff_range_start.values.flatten()
+        data_dict[feature_data.columns[1]] = diff_range_stop.values.flatten()
+        diff_df = pd.DataFrame(data = data_dict)
+
+
+        feature_data = pd.concat([diff_df, feature_data])
+
+
+    if feature_start == feature_end and acc_data.shape[0] != 0:
+        data_dict = OrderedDict()
+        for column_name in feature_data.columns:
+            data_dict[column_name] = [None]
+
+        data_dict[feature_data.columns[0]] = acc_data.iloc[0,0]
+        data_dict[feature_data.columns[1]] = acc_data.iloc[0,1]
+        feature_data = pd.DataFrame(data = data_dict)
+
+    feature_fig = Visualizer.feature_grapher(feature_data, return_fig=True)
+    #print(feature_fig['data'])
+    print('feature time, ', feature_data.iloc[feature_data.shape[0]-1,1])
+    print('acc time, ', acc_data.iloc[acc_data.shape[0]-1,0])
+
+    acc_fig['data'] += feature_fig['data']
+    acc_fig['layout'].update(feature_fig['layout'])
+    acc_fig['layout']['yaxis']['domain'] = [0,0.3]
+    acc_fig['layout']['yaxis2']['domain'] = [0.4,1]
+
+    range_end = pd.to_datetime(acc_data.iloc[acc_data.shape[0]-1,0])
+    range_start = range_end - datetime.timedelta(seconds=DISPLAY_RANGE)
+    acc_fig['layout']['xaxis'].update(dict(fixedrange=True, range=[range_start,range_end]))
+
+    return acc_fig
+
 
 if __name__ == '__main__':
     app.run_server()
-    
-    
-    
-    
-    
-    
-    
-    
