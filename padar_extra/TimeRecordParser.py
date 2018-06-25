@@ -5,7 +5,7 @@ import re
 from datetime import timedelta
 
 
-def parse(path_in, path_out, split, categorize):
+def parse(path_in, path_out, split, categorize, annotatoinset, annotator_set_id):
     recordlist = []
     parsed_data = pd.DataFrame(columns=['HEADER_TIME_STAMP','START_TIME',
                                         'STOP_TIME','LABEL_NAME','LABEL_ID',
@@ -50,11 +50,12 @@ def parse(path_in, path_out, split, categorize):
                                         'STOP_TIME','LABEL_NAME','LABEL_ID',
                                         'RATING_TIME_STAMP','RATING_INTENSITY',
                                         'RATING_CONFIDENCE'])
-    parsed_data['HEADER_TIME_STAMP'] = pd.to_datetime(parsed_data['HEADER_TIME_STAMP']).dt.strftime('%m/%d/%Y  %-I:%M:%S %p')
-    parsed_data['START_TIME'] = pd.to_datetime(parsed_data['START_TIME']).dt.strftime('%m/%d/%Y  %-I:%M:%S %p')
-    parsed_data['STOP_TIME'] = pd.to_datetime(parsed_data['STOP_TIME']).dt.strftime('%m/%d/%Y  %-I:%M:%S %p')
+                                        
+    parsed_data['HEADER_TIME_STAMP'] = pd.to_datetime(parsed_data['HEADER_TIME_STAMP']).apply(lambda x: x.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+    parsed_data['START_TIME'] = pd.to_datetime(parsed_data['START_TIME']).apply(lambda x: x.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+    parsed_data['STOP_TIME'] = pd.to_datetime(parsed_data['STOP_TIME']).apply(lambda x: x.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
 
-    write_to_file(parsed_data, split, path_out)
+    write_to_file(parsed_data, split, path_out, annotatoinset, annotator_set_id)
 
 def standardize_label(activities):
     standardized_activities = []
@@ -165,25 +166,26 @@ def split_by_hour(parsed_recordlist):
             new_recordlist.append(record)
     return new_recordlist
 
-def write_to_file(parsed_data, split, path_out):
+def write_to_file(parsed_data, split, path_out, annotatoinset, annotator_set_id):
     if not split:
         parsed_data.to_csv(path_out+'total.annotation.csv', index=False)
     else:
         parsed_data['key'] = pd.to_datetime(parsed_data['STOP_TIME']).dt.strftime('%Y-%m-%d-%H')
         temp_data = parsed_data.groupby('key')
         for key, data in temp_data:
-            time_elements = key.split('-') #'%Y-%m-%d-%-H'
-            data.drop('key', axis = 1).to_csv('/'.join(["",path_out,'MasterSynced',str(time_elements[0]),
+            start_time = pd.to_datetime(data.iloc[0,0])
+            time_elements = key.split('-') #'%Y-%m-%d-%H'
+            data.drop('key', axis = 1).to_csv('/'.join([path_out,'MasterSynced',str(time_elements[0]),
                         str(time_elements[1]),
-                        str(time_elements[2]),str(time_elements[3]),
-                        key+ '.annotation.csv']), index=False)
+                        str(time_elements[2]), str(time_elements[3]), '.'.join([annotatoinset, annotator_set_id,start_time.strftime('%Y-%m-%d-%H-%M-%S-%f')[:-3]+'-P0000',
+                        'annotation.csv'])]), index=False)
 
 
 if __name__ == '__main__':
-    if (len(sys.argv) < 4):
+    if (len(sys.argv) < 6):
         print('INSTRUCTION: \n'
-              + 'for simple parse: STANDARD/CATEGORIZE [Original File Path] [Formatted Annotation File Name] \n'
-              + 'split by hour: STANDARD/CATEGORIZE [Original File Path] [Formatted Annotation File Path] split \n'
+              + 'for simple parse: STANDARD/CATEGORIZE [Original File Path] [Formatted Annotation File Path] [AnnotationSet] [ANNOTATORID-ANNOTATIONSETID]\n'
+              + 'split by hour: STANDARD/CATEGORIZE  [Original File Path] [Formatted Annotation File Path] [AnnotationSet] [ANNOTATORID-ANNOTATIONSETID] split\n'
               + 'Standard for parse without categorize labels \n'
               + 'This tool automatically add annotation.csv at the end \n'
               + 'For more information, see README.MD')
@@ -194,7 +196,7 @@ if __name__ == '__main__':
             categorize = True
         else:
             raise ValueError('WRONG COMMAND')
-        if len(sys.argv) == 5 and sys.argv[4] == 'split':
-            parse(sys.argv[2],sys.argv[3], True, categorize)
+        if len(sys.argv) == 7 and sys.argv[6] == 'split':
+            parse(sys.argv[2],sys.argv[3], True, categorize, sys.argv[4], sys.argv[5])
         else:
-            parse(sys.argv[2],sys.argv[3], False, categorize)
+            parse(sys.argv[2],sys.argv[3], False, categorize, sys.argv[4], sys.argv[5])
