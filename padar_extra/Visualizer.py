@@ -183,7 +183,7 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
     traces = []
     for index in feature_index:
         trace = go.Scatter(
-        x = pd.to_datetime(featuredata[featuredata.columns[0]])+(pd.to_datetime(featuredata[featuredata.columns[1]])-pd.to_datetime(featuredata[featuredata.columns[0]]))/2,
+                        x = pd.to_datetime(featuredata[featuredata.columns[0]]),
                         y = featuredata[featuredata.columns[index]],
                         name = featuredata.columns[index],
                         mode = 'lines+markers',
