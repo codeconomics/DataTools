@@ -121,6 +121,9 @@ def categorize_label(activities):
         elif 'stair' in activity:
             categorized_activities.append('Ambulation')
             continue
+        elif re.findall('tak.*off', activity):
+            categorize_activities.append('nonwear')
+            continue
         else:
             while True:
                 user_input = input('Categorize '+activity+': [S]edentary, [A]mbulation, [O]ther, [R]emove: ').lower()

@@ -155,7 +155,7 @@ def __get_activity_group(label, four_class):
 
     unwear_keywords = [r'take\s*off','not.*wear','unworn','unwear','non.*wear']
     if any(re.findall(word, label) for word in unwear_keywords):
-        return 'unwear'
+        return 'nonwear'
 
     return four_class
 
