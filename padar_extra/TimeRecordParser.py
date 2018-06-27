@@ -93,6 +93,9 @@ def standardize_label(activities):
 def categorize_label(activities):
     categorized_activities = []
     for activity in activities:
+        if 'shop' in activity:
+            categorized_activities.append('Other')
+            continue
         if 'walk' in activity:
             categorized_activities.append('Ambulation')
             continue
@@ -122,7 +125,7 @@ def categorize_label(activities):
             categorized_activities.append('Ambulation')
             continue
         elif re.findall('tak.*off', activity):
-            categorize_activities.append('nonwear')
+            categorized_activities.append('nonwear')
             continue
         else:
             while True:
