@@ -13,9 +13,11 @@ import plotly.graph_objs as go
 import sys
 import ast
 import os.path
+import numpy as np
 
 
-def annotation_feature_grapher(featuredata, annotationdata, path_out=None, feature_index=None, return_fig=False):
+def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None, 
+                               feature_index=None, return_fig=False, title='', colors=None):
     """
 
     Create a figure with selected features(if no feature index is passed, select
@@ -35,23 +37,34 @@ def annotation_feature_grapher(featuredata, annotationdata, path_out=None, featu
 
 
     """
-    if isinstance(featuredata, str):
-        featuredata = pd.read_csv(featuredata)
-    elif featuredata is None:
+
+    if featuredata is None:
         featuredata = None
+    elif isinstance(featuredata, str):
+        featuredata = pd.read_csv(featuredata)
     if isinstance(annotationdata, str):
         annotationdata = pd.read_csv(annotationdata)
     if isinstance(feature_index, str):
         feature_index = ast.literal_eval(feature_index)
-
+    
     # create dict of annotation data
-    gantt_df = annotationdata.iloc[:,1:4]
-    gantt_df.columns = ['Start','Finish','Task']
-    gantt_df['Resource'] = gantt_df['Task']
-    colors =  __generate_color(len(gantt_df['Resource'].unique()))
-    gantt_fig = ff.create_gantt(gantt_df, group_tasks=True, bar_width=0.7,
-                                   title='Features And Annotation', index_col='Resource',
-                                   colors=colors, width=1300, show_colorbar=True)
+    if annotationdata.shape[0] > 0:
+        gantt_df = annotationdata.iloc[:,1:4]
+        gantt_df.columns = ['Start','Finish','Task']
+        gantt_df['Resource'] = gantt_df['Task']
+        if colors == None:
+            colors =  generate_color(len(gantt_df['Resource'].unique()))
+        gantt_fig = ff.create_gantt(gantt_df, group_tasks=True, bar_width=0.7,
+                                       title=title, index_col='Resource',
+                                       colors=colors, show_colorbar=False)
+    else:
+        place_holder = pd.DataFrame({'START_TIME':np.datetime64('1971-01-01'), 
+                                     'TEMP':0}, index=[0])
+        gantt_fig = dict(data=[go.Scatter(x=place_holder[place_holder.columns[0]], 
+                                 y=place_holder[place_holder.columns[1]], 
+                                 showlegend=False)],
+                    layout=dict(yaxis=dict(range=[-1,33]), height=600), showgrid=False)
+        return gantt_fig
 
     # create line chart for selected features
     if featuredata is not None:
@@ -71,10 +84,7 @@ def annotation_feature_grapher(featuredata, annotationdata, path_out=None, featu
         for line in newdata:
             if 'y' in line:
                 line['y'] = [line['y'][0]+5,line['y'][1]+5]
-        #    if 'hoverinfo' in line:
-        #        line['text'] = line['name']
-        #        line['hoverinfo'] = 'text'
-
+                
         gantt_fig['data'] = newdata+traces
 
         # move all the labels up
@@ -126,13 +136,13 @@ def acc_grapher(data, path_out=None, return_fig = False):
         return_fig: if return the figure object
 
     """
-
+    
     x = go.Scatter(
             y=data['X_ACCELERATION_METERS_PER_SECOND_SQUARED'],
             x=data['HEADER_TIME_STAMP'],
             name='x',
             mode='lines',
-            yaxis='y',
+            yaxis='y2',
             showlegend=False)
 
     y = go.Scatter(
@@ -140,7 +150,7 @@ def acc_grapher(data, path_out=None, return_fig = False):
             x=data['HEADER_TIME_STAMP'],
             name='y',
             mode='lines',
-            yaxis='y',
+            yaxis='y2',
             showlegend=False)
 
     z = go.Scatter(
@@ -148,12 +158,13 @@ def acc_grapher(data, path_out=None, return_fig = False):
             x=data['HEADER_TIME_STAMP'],
             name='z',
             mode='lines',
-            yaxis='y',
+            yaxis='y2',
             showlegend=False)
 
-    layout=dict(yaxis = dict(fixedrange=True, range=[-5,5]),
+    layout=dict(yaxis2 = dict(fixedrange=True, range=[-5,5]),
                 xaxis = dict(tickformat='%H:%M:%S',
-                             nticks=5))
+                             nticks=5),
+                height=400)
     fig = dict(data=[x,y,z], layout=layout)
 
     if return_fig:
@@ -177,23 +188,31 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
         return_fig: if return the figure object
 
     """
-    if feature_index is None:
-       feature_index = range(2,17)
-
     traces = []
-    for index in feature_index:
-        trace = go.Scatter(
-                        x = pd.to_datetime(featuredata[featuredata.columns[0]]),
-                        y = featuredata[featuredata.columns[index]],
-                        name = featuredata.columns[index],
-                        mode = 'lines+markers',
-                        yaxis='y2',
-                        showlegend=False,
-                        line=dict(
-                        shape='hvh'))
-        traces.append(trace)
-
-    layout = dict(yaxis2=dict(range=[-6,6]))
+    if featuredata.shape[0] > 0:
+        if feature_index is None:
+           feature_index = range(2,17)
+    
+        for index in feature_index:
+            trace = go.Scatter(
+                            x = pd.to_datetime(featuredata.iloc[:,0]),
+                            y = featuredata.iloc[:,index],
+                            name = featuredata.columns[index],
+                            mode = 'lines+markers',
+                            yaxis='y3',
+                            showlegend=False,
+                            line=dict(
+                            shape='hvh'))
+            traces.append(trace)
+    else:
+        place_holder = pd.DataFrame({'START_TIME':np.datetime64('1971-01-01'), 
+                                     'TEMP':0}, index=[0])
+        traces.append(go.Scatter(x=place_holder[place_holder.columns[0]], 
+                                 y=place_holder[place_holder.columns[1]], 
+                                 mode = 'lines+markers',
+                                 showlegend=False,
+                                 yaxis='y3'))
+    layout = dict(yaxis3=dict(range=[-6,6], height=600))
     fig = dict(data = traces, layout=layout)
 
     if return_fig:
@@ -202,12 +221,35 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
     if os.path.isdir(path_out):
         path_out = path_out + '/'
 
-    return py.plot(fig, filename=path_out+'acc_graph.html')
+    return py.plot(fig, filename=path_out+'feature_graph.html')
 
-
-
-
-def __generate_color(n):
+# =============================================================================
+# 
+# def annotation_grapher(annotationdata, feature_index = None, path_out=None, return_fig=False):
+#     traces = []
+#     if annotationdata.shape[0] > 0:
+#         grouped = annotationdata.groupby(annotationdata.columns[3])
+#         for key, data in grouped:
+#             x = 
+#             
+#         
+#         
+#         
+#         
+#         
+#         
+# 
+#     if return_fig:
+#          return fig
+# 
+#     if os.path.isdir(path_out):
+#         path_out = path_out + '/'
+# 
+#     return py.plot(fig, filename=path_out+'feature_graph.html')
+#         
+# 
+# =============================================================================
+def generate_color(n):
     colors = []
     for i in range(n):
         r = int(random.random() * 256)

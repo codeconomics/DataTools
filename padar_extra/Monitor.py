@@ -17,6 +17,7 @@ class AccDataBase(object):
        'ACTIVE_SAMPLE_PERC_VM', 'NUMBER_OF_ACTIVATIONS_VM',
        'ACTIVATION_INTERVAL_VAR_VM', 'MEDIAN_X_ANGLE', 'MEDIAN_Y_ANGLE',
        'MEDIAN_Z_ANGLE', 'RANGE_X_ANGLE', 'RANGE_Y_ANGLE', 'RANGE_Z_ANGLE']
+    
 
     #initialized feature data with column names
     def __init__(self, monitor=None):
@@ -57,19 +58,22 @@ class AccDataBase(object):
 
     def __append_data(self, feature_update, annotation_update, raw_update):
         if feature_update is not None:
-            if len(self.featuredata.index) == 0:
+            if self.featuredata.shape[0] == 0:
                 self.featuredata = feature_update
-            self.featuredata = pd.concat([self.featuredata, feature_update])
+            else: 
+                self.featuredata = pd.concat([self.featuredata, feature_update]).reset_index(drop=True)
 
         if annotation_update is not None:
-            if len(self.annotationdata.index) == 0:
+            if self.annotationdata.shape[0] == 0:
                 self.annotationdata = annotation_update
-            self.annotationdata = pd.concat([self.annotationdata, annotation_update])
+            else:
+                self.annotationdata = pd.concat([self.annotationdata, annotation_update]).reset_index(drop=True)
 
         if raw_update is not None:
-            if len(self.rawdata.index) == 0:
+            if self.rawdata.shape[0] == 0:
                 self.rawdata = raw_update
-            self.rawdata = pd.concat([self.rawdata, raw_update])
+            else:
+                self.rawdata = pd.concat([self.rawdata, raw_update]).reset_index(drop=True)
 
 
     def __delete_data(self, update_feature, update_annotation, update_raw):
@@ -133,7 +137,13 @@ class Monitor(object):
     def listen(self):
         if self.test:
             featuredata = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/Derived/Preprocessed/2015/10/08/14/ActigraphGT9X-PostureAndActivity-NA.TAS1E23150066-PostureAndActivity.2015-10-08-14-00-00-000-M0400.feature.csv')
-            #self.annotationdata = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/MasterSynced/2015/10/08/14/SPADESInLab.alvin-SPADESInLab.2015-10-08-14-10-41-252-M0400.annotation.csv')
+            raw_annotation = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/MasterSynced/2015/10/08/14/splitted.annotation.csv')
+            classmapping = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/MasterSynced/2015/10/08/14/class_mapping.csv')
+            annotationdata = pd.merge(raw_annotation, classmapping, left_on='LABEL_NAME', right_on='activity', how='inner')
+            annotationdata = annotationdata.drop('activity', axis=1)
+            annotationdata = annotationdata.values.tolist()
+            # sort annotation data by end time, just like in real situations
+            annotationdata.sort(key=lambda x: x[2])
             rawdata = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/Derived/Preprocessed/2015/10/08/14/ActigraphGT9X-AccelerationCalibrated-NA.TAS1E23150066-AccelerationCalibrated.2015-10-08-14-00-00-000-M0400.sensor.csv')
             last_time = pd.to_datetime(rawdata.iloc[0,0])
             feature_interval = datetime.timedelta(seconds=self.feature_time)
@@ -154,8 +164,17 @@ class Monitor(object):
                     feature_update = featuredata.iloc[feature_count:feature_count+1,:]
                     threshold_time = currtime + feature_interval
                     feature_count += 1
+                
+                annotation_update = []
+                while currtime >= pd.to_datetime(annotationdata[0][2]):
+                    annotation_update.append(annotationdata.pop(0))
+                
+                annotation_update=pd.DataFrame(annotation_update, 
+                                               columns=['HEADER_TIME_STAMP', 'START_TIME', 'STOP_TIME', 'LABEL_NAME', 'posture', 'four_class', 'indoor_outdoor'])
 
-                self.notify_observers(raw_update = raw_update, feature_update = feature_update)
+                self.notify_observers(raw_update = raw_update, 
+                                      feature_update = feature_update,
+                                      annotation_update = annotation_update)
 
             self.rt = RepeatedTimer(self.refresh/1000, __get_new_data, self.refresh,
                               self.sampling_rate, rawdata)
@@ -164,9 +183,9 @@ class Monitor(object):
 #             try:
 #                 time.sleep(64)
 #             finally:
-#                 rt.stop()
+#                 self.rt.stop()
+# 
 # =============================================================================
-
 if __name__ == '__main__':
     monitor = Monitor()
     db = AccDataBase(monitor)
