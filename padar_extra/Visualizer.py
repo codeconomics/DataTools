@@ -16,6 +16,7 @@ import os.path
 import numpy as np
 
 
+
 def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None, 
                                feature_index=None, return_fig=False, title='', colors=None):
     """
@@ -48,8 +49,9 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
         feature_index = ast.literal_eval(feature_index)
     
     # create dict of annotation data
+    annotationdata.reset_index(drop=True, inplace=True)
     if annotationdata.shape[0] > 0:
-        gantt_df = annotationdata.iloc[:,1:4]
+        gantt_df = annotationdata.iloc[:,:3]
         gantt_df.columns = ['Start','Finish','Task']
         gantt_df['Resource'] = gantt_df['Task']
         if colors == None:
@@ -57,6 +59,8 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
         gantt_fig = ff.create_gantt(gantt_df, group_tasks=True, bar_width=0.7,
                                        title=title, index_col='Resource',
                                        colors=colors, show_colorbar=False)
+        if featuredata is None and return_fig:
+            return gantt_fig
     else:
         place_holder = pd.DataFrame({'START_TIME':np.datetime64('1971-01-01'), 
                                      'TEMP':0}, index=[0])
@@ -202,7 +206,7 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
                             yaxis='y3',
                             showlegend=False,
                             line=dict(
-                            shape='hvh'))
+                            shape='vh'))
             traces.append(trace)
     else:
         place_holder = pd.DataFrame({'START_TIME':np.datetime64('1971-01-01'), 
@@ -225,18 +229,32 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
 
 # =============================================================================
 # 
-# def annotation_grapher(annotationdata, feature_index = None, path_out=None, return_fig=False):
+# def annotation_grapher(annotationdata, feature_index = None, path_out=None, return_fig=False, colors=None):
 #     traces = []
 #     if annotationdata.shape[0] > 0:
-#         grouped = annotationdata.groupby(annotationdata.columns[3])
+#         if colors == None:
+#             colors = {}
+#             for label in annotationdata.iloc[:,2].unique():
+#                 colors[label] = generate_color(1)[0]
+#         grouped = annotationdata.groupby(annotationdata.columns[2])
 #         for key, data in grouped:
-#             x = 
-#             
+#             traces.append(go.Bar(x=pd.to_datetime(data.iloc[:,0])+(pd.to_datetime(data.iloc[:,1])-pd.to_datetime(data.iloc[:,0]))/2,
+#                    y=[3]*len(data.iloc[:,0]),
+#                    showlegend=False,
+#                    marker=dict(color=colors[key],
+#                                colorbar=dict(xanchor='left')),
+#                    name=key,
+#                    hovertext=
+#                    [' '.join([pd.to_datetime(data.iloc[x,0]).strftime('%H:%M:%S'), 
+#                               'to', pd.to_datetime(data.iloc[x,1]).strftime('%H:%M:%S')]) for x in range(len(data.iloc[:,1]))]))
+#     else:
+#         place_holder = pd.DataFrame({'START_TIME':np.datetime64('1971-01-01'), 
+#                                      'TEMP':0}, index=[0])
+#         traces.append(go.Bar(x=place_holder[place_holder.columns[0]], 
+#                              y=3, showlegend=False))  
 #         
-#         
-#         
-#         
-#         
+#     layout=dict(yaxis=dict(range=[0,3]), height=600)
+#     fig = dict(data=traces, layout=layout)
 #         
 # 
 #     if return_fig:

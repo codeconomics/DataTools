@@ -137,40 +137,55 @@ class Monitor(object):
     def listen(self):
         if self.test:
             featuredata = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/Derived/Preprocessed/2015/10/08/14/ActigraphGT9X-PostureAndActivity-NA.TAS1E23150066-PostureAndActivity.2015-10-08-14-00-00-000-M0400.feature.csv')
-            raw_annotation = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/MasterSynced/2015/10/08/14/splitted.annotation.csv')
-            classmapping = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/MasterSynced/2015/10/08/14/class_mapping.csv')
-            annotationdata = pd.merge(raw_annotation, classmapping, left_on='LABEL_NAME', right_on='activity', how='inner')
-            annotationdata = annotationdata.drop('activity', axis=1)
+            featuredata = featuredata.values.tolist()
+            featuredata.sort(key=lambda x: x[1])
+
+            #raw_annotation = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/MasterSynced/2015/10/08/14/splitted.annotation.csv')
+            #classmapping = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/MasterSynced/2015/10/08/14/class_mapping.csv')
+            #annotationdata = pd.merge(raw_annotation, classmapping, left_on='LABEL_NAME', right_on='activity', how='inner')
+            #annotationdata = annotationdata.drop('activity', axis=1)
+            annotationdata = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/Derived/Preprocessed/2015/10/08/14/SPADESInLab.alvin-SPADESInLab.2015-10-08-14-10-41-252-M0400.class.csv')
             annotationdata = annotationdata.values.tolist()
             # sort annotation data by end time, just like in real situations
-            annotationdata.sort(key=lambda x: x[2])
+            annotationdata.sort(key=lambda x: x[1])
             rawdata = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2/Derived/Preprocessed/2015/10/08/14/ActigraphGT9X-AccelerationCalibrated-NA.TAS1E23150066-AccelerationCalibrated.2015-10-08-14-00-00-000-M0400.sensor.csv')
-            last_time = pd.to_datetime(rawdata.iloc[0,0])
-            feature_interval = datetime.timedelta(seconds=self.feature_time)
-            threshold_time = last_time+feature_interval
-            feature_count = 0
-
+# =============================================================================
+#             last_time = pd.to_datetime(rawdata.iloc[0,0])
+#             feature_interval = datetime.timedelta(seconds=self.feature_time)
+#             threshold_time = last_time+feature_interval
+#             feature_count = 0
+# 
+# =============================================================================
 
             def __get_new_data(count, refresh, sampling_rate, rawdata):
-                feature_update = None
+                feature_update = []
                 raw_update = rawdata[int(count*refresh/1000*sampling_rate):
                     int((count+1)*refresh/1000*sampling_rate)]
 
                 currtime = pd.to_datetime(raw_update.iloc[-1,0])
 
-                nonlocal threshold_time
-                if  currtime > threshold_time:
-                    nonlocal feature_count
-                    feature_update = featuredata.iloc[feature_count:feature_count+1,:]
-                    threshold_time = currtime + feature_interval
-                    feature_count += 1
-                
+# =============================================================================
+#                 nonlocal threshold_time
+#                 if  currtime > threshold_time:
+#                     nonlocal feature_count
+#                     feature_update = featuredata.iloc[feature_count:feature_count+1,:]
+#                     threshold_time = currtime + feature_interval
+#                     feature_count += 1
+# =============================================================================
                 annotation_update = []
-                while currtime >= pd.to_datetime(annotationdata[0][2]):
+                while currtime >= pd.to_datetime(annotationdata[0][1]):
                     annotation_update.append(annotationdata.pop(0))
-                
+                    feature_update.append(featuredata.pop(0))
+                    
+                feature_update=pd.DataFrame(feature_update, 
+                                               columns=['START_TIME', 'STOP_TIME', 'MEAN_VM', 'STD_VM', 'MAX_VM', 'DOM_FREQ_VM',
+       'DOM_FREQ_POWER_RATIO_VM', 'HIGHEND_FREQ_POWER_RATIO_VM', 'RANGE_VM',
+       'ACTIVE_SAMPLE_PERC_VM', 'NUMBER_OF_ACTIVATIONS_VM',
+       'ACTIVATION_INTERVAL_VAR_VM', 'MEDIAN_X_ANGLE', 'MEDIAN_Y_ANGLE',
+       'MEDIAN_Z_ANGLE', 'RANGE_X_ANGLE', 'RANGE_Y_ANGLE', 'RANGE_Z_ANGLE'])
                 annotation_update=pd.DataFrame(annotation_update, 
-                                               columns=['HEADER_TIME_STAMP', 'START_TIME', 'STOP_TIME', 'LABEL_NAME', 'posture', 'four_class', 'indoor_outdoor'])
+                                               columns=['START_TIME', 'STOP_TIME', 'posture', 'four_classes', 'MDCAS',
+       'indoor_outdoor', 'activity', 'activity_intensity', 'hand_gesture'])
 
                 self.notify_observers(raw_update = raw_update, 
                                       feature_update = feature_update,
