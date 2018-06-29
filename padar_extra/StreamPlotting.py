@@ -30,18 +30,30 @@ db = Monitor.AccDataBase(monitor)
 monitor.register_observer(db)
 monitor.listen()
 feature_options=[]
-for feature in db.feature_columns:
-    feature_options.append(dict(label=feature, value=feature))
-app.layout = html.Div([html.H2('Streaming Features'),
+for i in range(2,len(db.feature_columns)):
+    feature_options.append(dict(label=db.feature_columns[i], value=i))
+
+values = list(range(2,len(db.feature_columns)))
+
+app.layout = html.Div([html.Div([html.H3('Select feature'),
+                                 dcc.Dropdown(id='dropdown',
+                                              options=feature_options,
+                                              multi=True,
+                                              value=values)]),
                        html.Div([
                                dcc.Graph(id='acceleration-graph'),
                                ]),
                        dcc.Interval(id='time-update', interval=TIME_PERIOD, n_intervals=0),
-                        ])
-                       #html.Div([html.H3('Select feature'),
-                        #         dcc.Dropdown(options=feature_options,
-                         #                     multi=True)])])
+                       html.H2('', id='placeholder')])
 
+    
+@app.callback(Output('placeholder','children'),
+             [Input('dropdown','value')])
+def modify_values(value):
+    global values
+    values=value
+    return ''
+    
 
 @app.callback(Output('acceleration-graph','figure'),
               [Input('time-update','n_intervals')])
@@ -65,7 +77,7 @@ def gen_acceleration_graph(count):
         feature_end = 0
 
     feature_data = db.featuredata.iloc[feature_start:feature_end,:]
-    feature_fig = Visualizer.feature_grapher(feature_data, return_fig=True)
+    feature_fig = Visualizer.feature_grapher(feature_data, return_fig=True, feature_index=values)
     
     for label in db.annotationdata.iloc[:,3].unique():
         if label not in annotation_colors:

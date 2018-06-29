@@ -59,6 +59,7 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
         gantt_fig = ff.create_gantt(gantt_df, group_tasks=True, bar_width=0.7,
                                        title=title, index_col='Resource',
                                        colors=colors, show_colorbar=False)
+        gantt_fig['layout']['hovermode'] = 'closest'
         if featuredata is None and return_fig:
             return gantt_fig
     else:
@@ -168,7 +169,8 @@ def acc_grapher(data, path_out=None, return_fig = False):
     layout=dict(yaxis2 = dict(fixedrange=True, range=[-5,5]),
                 xaxis = dict(tickformat='%H:%M:%S',
                              nticks=5),
-                height=400)
+                height=400,
+                hovermode='closest')
     fig = dict(data=[x,y,z], layout=layout)
 
     if return_fig:
@@ -199,7 +201,7 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
     
         for index in feature_index:
             trace = go.Scatter(
-                            x = pd.to_datetime(featuredata.iloc[:,0]),
+                            x = pd.to_datetime(featuredata.iloc[:,1]),
                             y = featuredata.iloc[:,index],
                             name = featuredata.columns[index],
                             mode = 'lines+markers',
@@ -216,7 +218,7 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
                                  mode = 'lines+markers',
                                  showlegend=False,
                                  yaxis='y3'))
-    layout = dict(yaxis3=dict(range=[-6,6], height=600))
+    layout = dict(yaxis3=dict(height=600), hovermode='closest',hoveron='points+fills')
     fig = dict(data = traces, layout=layout)
 
     if return_fig:
