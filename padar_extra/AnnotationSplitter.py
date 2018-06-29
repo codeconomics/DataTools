@@ -74,13 +74,13 @@ def class_mapping(in_annotation):
     for label in labels:
         activity = __get_activity(label)
         posture = __get_posture(label, activity)
-        four_class = __get_four_class(label)
+        four_class = __get_four_class(label, activity)
         ambience = __get_indoor_outdoor(label, activity)
         hand_gesture = __get_hand_gesture(label, activity)
         activity_group = __get_activity_group(label, four_class)
         mapped_list.append(pd.Series([label, posture, four_class, activity_group,
                                       ambience, activity,hand_gesture],
-                                     index=['label','posture','four_class',
+                                     index=['label','posture','four_classes',
                                             'activity_group','indoor_outdoor',
                                             'activity', 'hand_gesture']))
     return pd.DataFrame(mapped_list)
@@ -90,53 +90,55 @@ def __get_posture(label, activity):
     if label == 'transition':
         return label
 
-    sit_keywords = ['sit','bik','reclin']
+    sit_keywords = ['sit','bik','reclin','watch','eat','gam']
     if any(re.findall(word, label) for word in sit_keywords):
         return 'sitting'
 
     upright_keywords = ['stand', 'run', 'jump', 'walk', 'frisbee', 'escalator'
                         ,'elevator', 'climb.*stair','stair', 'treadmill',
-                        'vend.*machine', 'shelf reloading or unloading','sweep']
+                        'vend.*machine', 'shelf reloading or unloading','sweep','shop']
     if any((re.findall(word, label) or re.findall(word, activity)) for word in upright_keywords):
         return 'upright'
 
-    lying_keywords = ['lying']
+    lying_keywords = ['lying','sleep','nap']
     if any((re.findall(word, label) or re.findall(word, activity)) for word in lying_keywords):
         return 'lying'
 
+    print('unknown posture', activity, label)
     return 'unknown'
 
 
-def __get_four_class(label):
+def __get_four_class(label, activity):
     if 'transition' in label:
         return 'transition'
 
     amb_keywords = ['walk','run','stair']
-    if any(re.findall(word, label) for word in amb_keywords):
+    if any((re.findall(word, label) or re.findall(word, activity)) for word in amb_keywords):
         return 'ambulation'
 
     cyc_keywords = ['cycl','bik']
-    if any(re.findall(word, label) for word in cyc_keywords):
+    if any((re.findall(word, label) or re.findall(word, activity)) for word in cyc_keywords):
         return 'cycling'
 
     seden_keywords = ['sit','stand','lying','typ', 'sleep', 'computer', 'still',
-                      'elevator','text','wait']
-    if any(re.findall(word, label) for word in seden_keywords):
+                      'elevator','text','wait','eat','watch','gam']
+    if any((re.findall(word, label) or re.findall(word, activity)) for word in seden_keywords):
         return 'sedentary'
 
     other_keywords = ['frisbee', 'sweep', 'paint', 'clean.*room', 'soccer',
-                      'basketball', 'tennis', 'jump','packing']
-    if any(re.findall(word, label) for word in other_keywords):
+                      'basketball', 'tennis', 'jump','packing','shop']
+    if any((re.findall(word, label) or re.findall(word, activity)) for word in other_keywords):
         return 'others'
 
-    #print('unknown four class:', label)
+    print('unknown four class:', label)
     return 'unknown'
 
 
 def __get_indoor_outdoor(label, activity):
     indoor_keywords = ['in\s*door', 'elevator', 'mbta', 'computer', r'brush\s*teeth'
                        ,'sleep','escalator','shop','cook','stairs','bed', 'typ'
-                       ,'treadmill', 'arm.*on desk', 'stationary biking', 'lying','sweep']
+                       ,'treadmill', 'arm.*on desk', 'stationary biking', 'lying','sweep','game',
+                       'eat','shop','pack','gam']
     if any((re.findall(word, label) or re.findall(word, activity)) for word in indoor_keywords):
         return 'indoor'
 
@@ -145,7 +147,7 @@ def __get_indoor_outdoor(label, activity):
         return 'outdoor'
 
 
-    #print('unknow indoor outdoor: ', label, activity)
+    print('unknow indoor outdoor: ', label, activity)
     return 'unknown'
 
 
@@ -155,6 +157,7 @@ def __get_activity_group(label, four_class):
 
     unwear_keywords = [r'take\s*off','not.*wear','unworn','unwear','non.*wear']
     if any(re.findall(word, label) for word in unwear_keywords):
+        print('unknown four class', label)
         return 'nonwear'
 
     return four_class
@@ -190,12 +193,12 @@ def __get_activity(label):
 
     # detect if there are other actions at the same time
     activities_verbs = collections.OrderedDict({'sitting':['sit'],
-                  'standing':['stand'],
+                  'standing':['stand','signal.*light'],
                   'biking outdoor' : [r'bik.*out\s*door',r'out\s*door.*bik', '300.*kpm.*bik'],
                   'stationary biking':['bik.*stationary',r'bik.*in\s*door|in\s*door.*bik'],
                   'frisbee':['frisbee'],
                   'jumping jacks':['jumping jacks'],
-                  'lying on the back':['lying.*back'],
+                  'lying on the back':['lying.*back','ly.*bed'],
                   'elevator up':['elevator.*up', 'up.*elevator'],
                   'elevator down':['elevator.*down', 'down.*elevator'],
                   'escalator up':['escalator.*up','up.*escalator'],
@@ -208,7 +211,13 @@ def __get_activity(label):
                   'folding towel':['fold.*towel'],
                   'shelf loading or unloading':['shelf.*load','unload'],
                   'using vending machine': ['vend.*machine'],
-                  'texting':['text'], 'web browsing':['web browsing']})
+                  'texting':['text'], 'web browsing':['web browsing'], 
+                  'gaming':['gam'],
+                  'using computer':['us.*computer','watch.*netflix'],
+                  'sleeping':['sleep','nap'],
+                  'eating':['eat'],
+                  'packing':['pack'],
+                  'shopping':['shop']})
 
     for key, keyword_list in activities_verbs.items():
         if any(re.findall(keyword, label) for keyword in keyword_list):
@@ -264,7 +273,7 @@ def __get_activity(label):
         activity = activity + ' naturally'
 
     if len(activity) == 0:
-        #print('unknown activity: ', label)
+        print('unknown activity: ', label)
         return 'unknown'
 
     return activity
@@ -272,7 +281,7 @@ def __get_activity(label):
 
 def __get_hand_gesture(label, activity):
     handgestures_label = {'writing':['writ'],
-                'arms on desk':['on.*desk','computer'],
+                'arms on desk':['on.*desk','computer','gam'],
                 'holding cellphone':['phone'],
                 'transition':['transition'],
                 'biking': ['bik'],
@@ -286,10 +295,12 @@ def __get_hand_gesture(label, activity):
                 'using vending machine':['vend.*machine'],
                 'still':['still','lying','sleep'],
                 'folding towels':['fold.*towel'],
-                'laundry':['laundry']}
+                'laundry':['laundry'],
+                'eating':['eat'],
+                'packing':['pack']}
     for key, keyword_list in handgestures_label.items():
-        if any(re.findall(keyword, label) for keyword in keyword_list):
-            return key
+        if any((re.findall(word, label) or re.findall(word, activity)) for word in keyword_list):
+                return key
 
     # special match for talking
     if any(re.findall(keyword, label) for keyword in ['talk.*phone','call']):
@@ -301,8 +312,10 @@ def __get_hand_gesture(label, activity):
             return 'using phone'
 
     if activity == 'unknown':
+        print('unknown gesture', activity, label)
         return 'unknown'
-
+    
+    print('free hand gesture', activity, label)
     return 'free'
 
 
@@ -337,7 +350,7 @@ if __name__ == '__main__':
 
 
 def __test():
-    in_annotation=pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.annotation.csv')
+    in_annotation=pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.ANKLE.2018-06-20/Aiden/Derived/RealLifeAnkleRawtotal.annotation.csv')
     splitted = annotation_splitter(in_annotation)
     classmapping = class_mapping(splitted)
     test_class = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.class.csv')
