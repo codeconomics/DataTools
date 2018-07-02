@@ -28,9 +28,11 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
     Args:
         featuredata: pandas.DataFrame containing feature data
         annotationdata: pandas.DataFrame containing annotations
-        pathout: path to write the html figure file
+        path_out: path to write the html figure file
         feature_index: the index of the features to select in featuredata dataframe
         return_fig: if return the figure object
+        titile: the title of the graph. Default empty string
+        colors: preset colors for different labels. If empty generate random colors
 
     Returns:
         if return_fig == False: the url of the created figure
@@ -139,6 +141,11 @@ def acc_grapher(data, path_out=None, return_fig = False):
         data: pandas.Dataframe containing acceleration data
         path_out: string the path to write
         return_fig: if return the figure object
+        
+    Returns:
+        if return_fig == False: the url of the created figure
+        else return the figure object
+        
 
     """
     
@@ -190,8 +197,13 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
 
     Args:
         data: pandas.Dataframe containing feature data
+        feature_index: the index of features to plot
         path_out: string the path to write
         return_fig: if return the figure object
+
+    Returns:
+        if return_fig == False: the url of the created figure
+        else return the figure object
 
     """
     traces = []
