@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Jun 15 10:45:02 2018
-
 @author: zhangzhanming
 """
 import pandas as pd
@@ -20,11 +19,9 @@ import numpy as np
 def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None, 
                                feature_index=None, return_fig=False, title='', colors=None):
     """
-
     Create a figure with selected features(if no feature index is passed, select
     all Features by default), and annotation. if not return figure object,
     create html file in designated file path
-
     Args:
         featuredata: pandas.DataFrame containing feature data
         annotationdata: pandas.DataFrame containing annotations
@@ -33,12 +30,9 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
         return_fig: if return the figure object
         titile: the title of the graph. Default empty string
         colors: preset colors for different labels. If empty generate random colors
-
     Returns:
         if return_fig == False: the url of the created figure
         else return the figure object
-
-
     """
 
     if featuredata is None:
@@ -133,10 +127,8 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
 
 def acc_grapher(data, path_out=None, return_fig = False):
     """
-
     Create a figure with acceleration data, if return_fig is true, return the
     figure object, otherwise return the url
-
     Args:
         data: pandas.Dataframe containing acceleration data
         path_out: string the path to write
@@ -146,7 +138,6 @@ def acc_grapher(data, path_out=None, return_fig = False):
         if return_fig == False: the url of the created figure
         else return the figure object
         
-
     """
     
     x = go.Scatter(
@@ -191,20 +182,16 @@ def acc_grapher(data, path_out=None, return_fig = False):
 
 def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig=False):
     """
-
     Create a figure with feature data, if return_fig is true, return the
     figure object, otherwise return the url
-
     Args:
         data: pandas.Dataframe containing feature data
         feature_index: the index of features to plot
         path_out: string the path to write
         return_fig: if return the figure object
-
     Returns:
         if return_fig == False: the url of the created figure
         else return the figure object
-
     """
     traces = []
     if featuredata.shape[0] > 0:
