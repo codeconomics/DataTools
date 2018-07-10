@@ -20,11 +20,14 @@ from sklearn.model_selection import cross_val_score
 from sklearn import svm
 #from sklearn.model_selection import cross_val_predict
 from sklearn import metrics
+import os 
+import re
 
 class ModelAnalyzer(object):
     
     def __init__(self, model=None, raw_data=None, feature_data=None, prediction=None, 
-                 target_data=None, class_data=None, target_class=None, class_mapping=None):
+                 target_data=None, class_data=None, target_class=None, class_mapping=None,
+                 real_annotation=None, root=None):
         self.model = model
         self.raw_data = raw_data
         self.feature_data = feature_data
@@ -32,8 +35,11 @@ class ModelAnalyzer(object):
         self.target_data = target_data
         self.class_data = class_data
         self.class_mapping = class_mapping
+        self.real_annotation=real_annotation
+        self.target_class=target_class
+        self.root = root
         if target_class is not None and class_data is not None:
-            target_data = class_data[target_class]
+            self.target_data = class_data[target_class]
     
 
     def set_model(self, model):
@@ -55,7 +61,15 @@ class ModelAnalyzer(object):
     def set_class_data(self, class_data):
         self.class_data = class_data
 
+    def set_class_mapping(self, class_mapping):
+        self.class_mapping = class_mapping
+        
+    def set_real_annotation(self, real_annotation):
+        self.real_annotation = real_annotation
 
+    def set_root(self, root):
+        self.root = root 
+    
     def gen_confusion_matrix(self, prediction=None, 
                              target_data=None, normalize=True):
         if prediction is None:
@@ -68,31 +82,49 @@ class ModelAnalyzer(object):
         self.plot_confusion_matrix(cnf_matrix, class_names, normalize=normalize)
 
     
-# =============================================================================
-#     def train_model(self, feature_data=None, 
-#                       target_data=None):
-#         if feature_data is None:
-#             feature_data = self.feature_data
-#         if target_data is None:
-#             target_data = self.target_data
-#             
-#         self.model.fit(feature_data, target_data)
-#         return self.model
-# 
-# =============================================================================
-    
-    def get_confusion_data(self, time_series, true_value, predicted_value, target_data=None,
-                           prediction=None, feature_data=None):
+    def get_confusion_data(self,true_value, predicted_value, target_data=None,
+                           prediction=None, feature_data=None, root=None):
         if target_data is None:
             target_data = self.target_data
         if prediction is None:
             prediction= self.prediction
         if feature_data is None:
             feature_data = self.feature_data
+        if root is None:
+            root = self.root
+
 
         indexes = (target_data==true_value) & (prediction==predicted_value)
-        times = time_series[indexes]
         features = feature_data.loc[indexes,:]
+        times = feature_data.loc[indexes, ['START_TIME','STOP_TIME']]
+        times.iloc[:,0] = pd.to_datetime(times.iloc[:,0])
+        times.iloc[:,1] = pd.to_datetime(times.iloc[:,1])
+        times['key'] = times['START_TIME'].dt.strftime('%Y/%m/%d/%H')
+        
+        grouped_time = times.groupby('key')
+        acc_data = pd.DataFrame(columns=['HEADER_TIME_STAMP', 'X_ACCELERATION_METERS_PER_SECOND_SQUARED',
+       'Y_ACCELERATION_METERS_PER_SECOND_SQUARED',
+       'Z_ACCELERATION_METERS_PER_SECOND_SQUARED'])
+        
+        for key, data in grouped_time:
+            file_list = []
+            path = root+'/MasterSynced/'+key
+            for filename in os.listdir(path):
+                if re.match(".sensor.csv", filename):
+                    file_list.append(pd.read_csv(os.path.join(path, filename)))
+            
+            if len(file_list) > 1 or len(file_list) < 1:
+                raise Exception("Can't handle now")
+            
+            temp_acc = file_list[0]
+            for i in range(data.shape[0]):
+                acc_data = acc_data.append(temp_acc[temp_acc.iloc[:,0] >= data.iloc[i,0] & 
+                                                    temp_acc.iloc[:,0] <= data.iloc[i,1]])
+                
+
+
+        
+        
 # =============================================================================
 #         rawdata= pd.DataFrame(columns=self.raw_data.columns)
 #         for index, series in times:
@@ -102,7 +134,9 @@ class ModelAnalyzer(object):
         
         return features
 
-    def preprocess(in_data, classes, target_index, rescale=False):
+    def preprocess(in_data, classes, target_index=None, rescale=False):
+        if target_index is None:
+            target_index = self.target_class
         in_data.sort_values(by=['pid','START_TIME','STOP_TIME'], inplace=True)
         classes.sort_values(by=['pid','START_TIME','STOP_TIME'], inplace=True)
         in_data = in_data.reset_index().drop('index', axis=1)
@@ -162,7 +196,7 @@ class ModelAnalyzer(object):
         plt.xlabel('Predicted label')
 
 
-    def predict_with_real_data(self, time_stamps, real_features=None, class_mapping=None, real_annotation=None, target_class=None, model=None):
+    def predict_with_real_data(self, real_features=None, class_mapping=None, real_annotation=None, target_class=None, model=None):
         if real_features is None: 
             real_features = self.feature_data
         if class_mapping is None:
@@ -173,21 +207,15 @@ class ModelAnalyzer(object):
             target_class = self.target_class
         if model is None:
             model = self.model
-        
-        real_features = real_features.dropna()
-        prediction = model.predict(real_features)
-        
-        real_features['Result'] = prediction
-        prediction_with_time = real_features.join(time_stamps.iloc[:,0:2])
-        prediction_with_time = prediction_with_time.iloc[:,16:19]
-        
+            
+        real_features = real_features.iloc[:,:18]
+
         real_annotation = pd.merge(real_annotation, class_mapping, left_on ='LABEL_NAME', right_on='label', copy=False).drop('LABEL_NAME', axis=1)
-        
         truth= []
         starttimelist = real_annotation['START_TIME']
         stoptimelist = real_annotation['STOP_TIME']
-        
-        for key, series in prediction_with_time.iterrows():
+    
+        for key, series in real_features.iterrows():
             starttime = series['START_TIME']
             stoptime = series['STOP_TIME']
             for i in range(len(starttimelist)+1):
@@ -198,18 +226,27 @@ class ModelAnalyzer(object):
                         truth.append(real_annotation.loc[real_annotation.index[i],target_class])
                         break
         
-        truth = np.asarray(truth)   
+        truth = np.asarray(truth)  
+    
+        real_features['Truth'] = truth
+        real_features = real_features.dropna()
         
-        prediction_with_time['Truth'] = truth
-            
-        prediction_with_time = prediction_with_time.loc[~(prediction_with_time['Truth']=='not started'),:]    
-        prediction_with_time = prediction_with_time.loc[~(prediction_with_time['Truth']=='nonwear'),:]    
-        prediction_with_time = prediction_with_time.loc[~(prediction_with_time['Truth']=='unknown'),:]   
-        self.target_data = prediction_with_time['Truth']
-        self.prediction = prediction_with_time['Result']
-        self.feature_data = real_features.loc[prediction_with_time.index,:]
+        print('unknown: {} \nunwear: {}'.format(real_features[real_features['Truth'] == 'unknown'].shape[0],
+        real_features[(real_features['Truth'] == 'not started') | (real_features['Truth'] == 'nonwear')].shape[0]))
         
-        return prediction_with_time['Truth'],  prediction_with_time['Result']
+        real_features = real_features.loc[~(real_features['Truth']=='not started'),:]    
+        real_features = real_features.loc[~(real_features['Truth']=='nonwear'),:]    
+        real_features = real_features.loc[~(real_features['Truth']=='unknown'),:]   
+        
+        prediction = model.predict(real_features.iloc[:,2:18])
+        
+        real_features['Result'] = prediction
+                
+        self.prediction= real_features['Result']
+        self.target_data = real_features['Truth']
+        self.feature_data = real_features.iloc[:,:18]
+
+        return real_features['Truth'],  real_features['Result']
 
     
     
@@ -221,13 +258,20 @@ if test:
     in_data.drop(in_data.columns[0], axis =1, inplace=True)
     features, target = ModelAnalyzer.preprocess(in_data, classes, 'posture', False)
     model = RandomForestClassifier(n_estimators=50, n_jobs=-1)
+    model.fit(features, target)
     analyzer = ModelAnalyzer(model = model)
-    analyzer.train_model(feature_data=features, target_data=target)
     aiden_feature_data = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.ANKLE.2018-06-20/Aiden/Derived/PostureAndActivity.feature.csv')
+    class_mapping = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.ANKLE.2018-06-20/Aiden/Derived/class_mapping.csv')
+    real_annotation = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.ANKLE.2018-06-20/Aiden/Derived/splitted.annotation.csv')
+    analyzer.set_class_mapping(class_mapping)
+    analyzer.set_real_annotation(real_annotation)
+    analyzer.set_feature_data(aiden_feature_data)
+    truth, prediction = analyzer.predict_with_real_data(target_class='posture')
+    analyzer.gen_confusion_matrix()
+    analyzer.get_confusion_data('lying','sitting')
+    analyzer.set_root('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.ANKLE.2018-06-20/Aiden/')
     
-    analyzer.set_class_data()
-
-        
+    
         
         
 
