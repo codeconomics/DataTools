@@ -70,7 +70,7 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
         gantt_fig = dict(data=[go.Scatter(x=place_holder[place_holder.columns[0]], 
                                  y=place_holder[place_holder.columns[1]], 
                                  showlegend=False)],
-                    layout=dict(yaxis=dict(range=[-1,33]), height=600), showgrid=False)
+                    layout=dict(yaxis=dict(range=[-1,33])), showgrid=False, height=600)
         return gantt_fig
 
     # create line chart for selected features
@@ -131,7 +131,7 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
     return py.plot(gantt_fig, filename=(path_out+'feature_annotation_graph.html'))
 
 
-def acc_grapher(data, path_out=None, return_fig = False):
+def acc_grapher(data, path_out=None, return_fig = False, showlegend=False):
     """
 
     Create a figure with acceleration data, if return_fig is true, return the
@@ -155,7 +155,7 @@ def acc_grapher(data, path_out=None, return_fig = False):
             name='x',
             mode='lines',
             yaxis='y2',
-            showlegend=False)
+            showlegend=showlegend)
 
     y = go.Scatter(
             y=data['Y_ACCELERATION_METERS_PER_SECOND_SQUARED'],
@@ -163,7 +163,7 @@ def acc_grapher(data, path_out=None, return_fig = False):
             name='y',
             mode='lines',
             yaxis='y2',
-            showlegend=False)
+            showlegend=showlegend)
 
     z = go.Scatter(
             y=data['Z_ACCELERATION_METERS_PER_SECOND_SQUARED'],
@@ -171,7 +171,7 @@ def acc_grapher(data, path_out=None, return_fig = False):
             name='z',
             mode='lines',
             yaxis='y2',
-            showlegend=False)
+            showlegend=showlegend)
 
     layout=dict(yaxis2 = dict(fixedrange=True, range=[-5,5]),
                 xaxis = dict(tickformat='%H:%M:%S',
@@ -189,7 +189,7 @@ def acc_grapher(data, path_out=None, return_fig = False):
     return py.plot(fig, filename=path_out+'acc_graph.html')
 
 
-def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig=False):
+def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig=False, showlegend=False, hide_traces=False):
     """
 
     Create a figure with feature data, if return_fig is true, return the
@@ -207,9 +207,14 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
 
     """
     traces = []
+    if hide_traces:
+        visible= 'legendonly'
+    else:
+        visible=True
+        
     if featuredata.shape[0] > 0:
         if feature_index is None:
-           feature_index = range(2,17)
+           feature_index = range(2,18)
     
         for index in feature_index:
             trace = go.Scatter(
@@ -218,9 +223,10 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
                             name = featuredata.columns[index],
                             mode = 'lines+markers',
                             yaxis='y3',
-                            showlegend=False,
+                            showlegend=showlegend,
                             line=dict(
-                            shape='vh'))
+                            shape='vh'),
+                            visible=visible)
             traces.append(trace)
     else:
         place_holder = pd.DataFrame({'START_TIME':np.datetime64('1971-01-01'), 
@@ -228,9 +234,10 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
         traces.append(go.Scatter(x=place_holder[place_holder.columns[0]], 
                                  y=place_holder[place_holder.columns[1]], 
                                  mode = 'lines+markers',
-                                 showlegend=False,
-                                 yaxis='y3'))
-    layout = dict(yaxis3=dict(height=600), hovermode='closest',hoveron='points+fills')
+                                 showlegend=showlegend,
+                                 yaxis='y3',
+                                 visible=visible))
+    layout = dict(height=600)
     fig = dict(data = traces, layout=layout)
 
     if return_fig:
