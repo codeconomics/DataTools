@@ -18,7 +18,8 @@ import numpy as np
 
 
 def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None, 
-                               feature_index=None, return_fig=False, title='', colors=None):
+                               feature_index=None, return_fig=False, title='', colors=None,
+                               non_overlap=False):
     """
 
     Create a figure with selected features(if no feature index is passed, select
@@ -62,6 +63,31 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
                                        title=title, index_col='Resource',
                                        colors=colors, show_colorbar=False)
         gantt_fig['layout']['hovermode'] = 'closest'
+        
+        if non_overlap:
+            print('here')
+            for box in gantt_fig['layout']['shapes']:
+                box['y0'] = 0.2
+                box['y1'] = 1.8
+                box['yref'] = 'page'
+            tick_text = gantt_fig['layout']['yaxis']['ticktext']
+
+            for point in gantt_fig['data']:
+                point['text'] = tick_text[point['y'][0]]
+                point['y'] = [1,1]
+                point['hoverinfo'] = 'text'
+            
+            del gantt_fig['layout']['yaxis']['tickvals']
+            del gantt_fig['layout']['yaxis']['ticktext']
+            gantt_fig['layout']['yaxis']['range'] = [0,2]
+            gantt_fig['layout']['height'] = 250
+            gantt_fig['layout']['width'] = 1200
+            gantt_fig['layout']['showlegend'] = False
+            gantt_fig['layout']['yaxis']['showline']=False
+            gantt_fig['layout']['yaxis']['showticklabels']=False
+
+        
+        
         if featuredata is None and return_fig:
             return gantt_fig
     else:

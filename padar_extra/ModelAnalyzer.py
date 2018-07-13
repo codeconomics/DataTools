@@ -24,6 +24,7 @@ import os
 import re
 import plotly.offline as py
 import plotly.figure_factory as ff
+import InterativeHistogram
 
 
 class ModelAnalyzer(object):
@@ -286,17 +287,15 @@ class ModelAnalyzer(object):
             min_val = list_of_data[0].iloc[:,i].min()
             range_val = (max_val-min_val)/100
             feature_name = list_of_data[0].columns[i]
-            print(feature_name)
             if range_val==0:
                 # if it's a singular matrix, ignore this trace
                 print('singular matrix', feature_name)
                 continue
             mean = list_of_data[0].iloc[:,i].mean()
             std = list_of_data[0].iloc[:,i].std()
-            start = mean-5*std
-            end =  mean+5*std
+            start = mean-7*std
+            end =  mean+7*std
             size = (end-start)/100
-            print(start, end, size)
             feature_names.append(feature_name)
             for j in range(n_traces):
                 fig_list.append(go.Histogram(
@@ -336,6 +335,19 @@ class ModelAnalyzer(object):
             return fig
         py.plot(fig, filename=path_out+'histograms.html')
         
+    
+    def print_feature_importance(self, model=None, feature_names=None):
+        if model is None:
+            model = self.model
+        if feature_names is None:
+            feature_names = self.feature_data.columns
+            if "START_TIME" in feature_names:
+                feature_names = feature_names[2:18]
+                
+        importance = pd.DataFrame({'NAME':feature_names, 'IMPORTANCE': model.feature_importances_})
+        importance.sort_values('IMPORTANCE',ascending=False, inplace=True)
+        self.feature_importance = importance
+        print(importance)
     
 # =============================================================================
 #     @staticmethod
@@ -399,26 +411,27 @@ class ModelAnalyzer(object):
 #     
 # =============================================================================
     
-    
-test= False
-if test:
+
+def test_on_data(position, time):
     classes = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SampleData/spadeslab/SPADESInLab-cleaned.class.csv')
-    in_data = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SampleData/DomAnkle.csv')
+    in_data = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SampleData/'+position+'.csv')
     in_data.drop(in_data.columns[0], axis =1, inplace=True)
     features, target = ModelAnalyzer.preprocess(in_data, classes, 'posture', False)
     model = RandomForestClassifier(n_estimators=50, n_jobs=-1)
     model.fit(features, target)
+    scores = cross_val_score(model, features, target, cv=10)
+    print('cv score:', scores.mean())
     analyzer = ModelAnalyzer(model = model)
-    aiden_feature_data = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.ANKLE.2018-06-20/Aiden/Derived/PostureAndActivity.feature.csv')
-    class_mapping = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.ANKLE.2018-06-20/Aiden/Derived/class_mapping.csv')
-    real_annotation = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.ANKLE.2018-06-20/Aiden/Derived/splitted.annotation.csv')
+    aiden_feature_data = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/Derived/PostureAndActivity.feature.csv')
+    class_mapping = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/Derived/class_mapping.csv')
+    real_annotation = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/Derived/splitted.annotation.csv')
     analyzer.set_class_mapping(class_mapping)
     analyzer.set_real_annotation(real_annotation)
     analyzer.set_feature_data(aiden_feature_data)
     truth, prediction = analyzer.predict_with_real_data(target_class='posture')
-    print(metrics.accuracy_score(truth, prediction))
+    print('test on real data:', metrics.accuracy_score(truth, prediction))
     analyzer.gen_confusion_matrix()
-    analyzer.set_root('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.ANKLE.2018-06-20/Aiden/')
+    analyzer.set_root('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/')
     wrong_feature = analyzer.get_confusion_data('lying','sitting', get_acc_data=False)
     sample_lying = features[target=='lying']
     sample_lying = sample_lying[sample_lying.iloc[:,0] < 100]
@@ -427,22 +440,32 @@ if test:
     aligned_features = analyzer.aligned_features
     real_lying = aligned_features[aligned_features['Truth'] == 'lying']
     real_sitting = aligned_features[aligned_features['Truth'] == 'sitting']
-    fig = ModelAnalyzer.get_distribution([wrong_feature.iloc[:,2], 
-                                  sample_lying.iloc[:,0], 
-                                  sample_sitting.iloc[:,0], 
-                                  real_lying, 
-                                  real_sitting],
-                           ['wrong sitting','sample_lying','sample_sitting','real_lying','real_sitting'])
-
-    py.plot(fig, filename=path_out+'distrubition.html')
+    analyzer.print_feature_importance()
     #analyzer.plot_feature_and_raw(wrong_feature, wrong_acc)
     
-    fig = ModelAnalyzer.get_histograms([wrong_feature.iloc[:,2:18], 
+    ModelAnalyzer.get_histograms([wrong_feature.iloc[:,2:18], 
                                   sample_lying, 
                                   sample_sitting, 
                                   real_lying.iloc[:,2:18], 
                                   real_sitting.iloc[:,2:18]],
-                           ['wrong sitting','sample_lying','sample_sitting','real_lying','real_sitting'])
+                           ['wrong sitting','sample_lying','sample_sitting','real_lying','real_sitting'],
+                           path_out='/Users/zhangzhanming/Desktop/mHealth/Test/'+position+'.')
+    
+    InterativeHistogram.gen_interactive_histograms([wrong_feature.iloc[:,:18], 
+                                  sample_lying, 
+                                  sample_sitting, 
+                                  real_lying.iloc[:,:18], 
+                                  real_sitting.iloc[:,:18]],
+                           ['wrong sitting','sample_lying','sample_sitting','real_lying','real_sitting'],
+                           real_annotation.iloc[:,1:])
 
-
-        
+test= False
+if test:
+    test_on_data('DomAnkle','2018-07-03')
+    position='DomAnkle'
+    time = '2018-07-03'
+    
+    wrong_feature.loc[(wrong_feature['MEAN_VM']>0.993878) & (wrong_feature['MEAN_VM']<0.997646),:]['MEAN_VM']
+    wrong_feature.iloc[[10,26,50,52,68],:]['MEAN_VM']
+    
+   
