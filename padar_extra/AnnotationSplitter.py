@@ -96,7 +96,7 @@ def __get_posture(label, activity):
 
     upright_keywords = ['stand', 'run', 'jump', 'walk', 'frisbee', 'escalator'
                         ,'elevator', 'climb.*stair','stair', 'treadmill',
-                        'vend.*machine', 'shelf reloading or unloading','sweep','shop']
+                        'vend.*machine', 'shelf reloading or unloading','sweep','shop','cook']
     if any((re.findall(word, label) or re.findall(word, activity)) for word in upright_keywords):
         return 'upright'
 
@@ -126,7 +126,7 @@ def __get_four_class(label, activity):
         return 'sedentary'
 
     other_keywords = ['frisbee', 'sweep', 'paint', 'clean.*room', 'soccer',
-                      'basketball', 'tennis', 'jump','packing','shop']
+                      'basketball', 'tennis', 'jump','packing','shop','cook']
     if any((re.findall(word, label) or re.findall(word, activity)) for word in other_keywords):
         return 'others'
 
@@ -217,7 +217,8 @@ def __get_activity(label):
                   'sleeping':['sleep','nap'],
                   'eating':['eat'],
                   'packing':['pack'],
-                  'shopping':['shop']})
+                  'shopping':['shop'],
+                  'cooking':['cook','mak.*food']})
 
     for key, keyword_list in activities_verbs.items():
         if any(re.findall(keyword, label) for keyword in keyword_list):
@@ -297,7 +298,9 @@ def __get_hand_gesture(label, activity):
                 'folding towels':['fold.*towel'],
                 'laundry':['laundry'],
                 'eating':['eat'],
-                'packing':['pack']}
+                'packing':['pack'],
+                'holding a bag':['hold.*bag','with.*bag'],
+                'shopping':['shop']}
     for key, keyword_list in handgestures_label.items():
         if any((re.findall(word, label) or re.findall(word, activity)) for word in keyword_list):
                 return key
