@@ -18,15 +18,16 @@ import pandas as pd
 import copy
 
 
-def gen_interactive_histograms(list_of_data, list_of_names, annotations):
+def gen_interactive_histograms(testing_data, training_data, list_of_names, annotations, feature_names=None, classes=None):
     app = dash.Dash()
-    feature_names = list_of_data[0].columns
-    if "START_TIME" in feature_names:
-        feature_names = feature_names[2:18]
+    if feature_names is None:
+        feature_names = testing_data[0].columns
+        if "START_TIME" in feature_names:
+            feature_names = feature_names[2:18]
         
     ann_fig = Visualizer.annotation_feature_grapher(annotations, return_fig=True, non_overlap=True)
     all_shapes = []
-    for index, series in list_of_data[0].iloc[:,:2].iterrows():
+    for index, series in testing_data[0].iloc[:,:2].iterrows():
             all_shapes.append(
                     {'type': 'rect',
                      'xref': 'x',
@@ -51,13 +52,26 @@ def gen_interactive_histograms(list_of_data, list_of_names, annotations):
         }
     }
     
+# =============================================================================
+#     if classes is None:
+#         classes = list(testing_data[0].iloc[:,-1].unique())
+# =============================================================================
+    
+    
     app.layout = html.Div([
             
             html.Div([
                     dcc.Dropdown(
                             id='feature-kind',
                             options=[{'label': feature_names[i], 'value': feature_names[i]} for i in range(len(feature_names))],
-                            value= 'MEAN_VM')]),
+                            value= 'MEAN_VM'),
+# =============================================================================
+#                     dcc.Checklist(options=[
+#                             {'label':}
+#                             
+#                             ]])
+# =============================================================================
+    ]),
             html.Div([
                     dcc.Graph(
                             id='histograms',
@@ -66,7 +80,7 @@ def gen_interactive_histograms(list_of_data, list_of_names, annotations):
                 html.Div([
                     html.Button('Show All', id='button'),
                     dcc.Graph(id='annotation', figure=ann_fig),
-                    html.Pre(id='hover-data', style=styles['pre'])
+                    ##html.Pre(id='hover-data', style=styles['pre'])
                 ], className='three columns')],
             )
     ])
@@ -77,6 +91,7 @@ def gen_interactive_histograms(list_of_data, list_of_names, annotations):
             [dash.dependencies.Input('feature-kind','value')])
     def update_histograms(feature_kind):
         fig_list = []
+        list_of_data = testing_data + training_data
         n_traces = len(list_of_data)
         max_val = list_of_data[0].loc[:,feature_kind].max()
         min_val = list_of_data[0].loc[:,feature_kind].min()
@@ -86,10 +101,15 @@ def gen_interactive_histograms(list_of_data, list_of_names, annotations):
             # if it's a singular matrix, ignore this trace
             print('singular matrix', feature_name)
             return None
-        mean = list_of_data[0].loc[:,feature_kind].mean()
-        std = list_of_data[0].loc[:,feature_kind].std()
-        start = mean-7*std
-        end =  mean+7*std
+# =============================================================================
+#         mean = list_of_data[0].loc[:,feature_kind].mean()
+#         std = list_of_data[0].loc[:,feature_kind].std()
+#         start = mean-7*std
+#         end =  mean+7*std
+#         size = (end-start)/100
+# =============================================================================
+        start = min([min(data.loc[:,feature_kind]) for data in list_of_data])
+        end = max([max(data.loc[:,feature_kind]) for data in list_of_data])
         size = (end-start)/100
         for j in range(n_traces):
             fig_list.append(go.Histogram(
@@ -106,27 +126,36 @@ def gen_interactive_histograms(list_of_data, list_of_names, annotations):
         return fig
     
     
-    @app.callback(
-        dash.dependencies.Output('hover-data', 'children'),
-        [dash.dependencies.Input('histograms', 'clickData')])
-    def display_hover_data(hoverData):
-        return json.dumps(hoverData, indent=2)
-    
+# =============================================================================
+#     @app.callback(
+#         dash.dependencies.Output('hover-data', 'children'),
+#         [dash.dependencies.Input('histograms', 'clickData')])
+#     def display_hover_data(hoverData):
+#         return json.dumps(hoverData, indent=2)
+#     
+# =============================================================================
     @app.callback(
         dash.dependencies.Output('annotation', 'figure'),
         [dash.dependencies.Input('histograms', 'clickData'),
          dash.dependencies.Input('button','n_clicks')])
-    def update_annotation(hoverData, n_clicks):  
+    def update_annotation(clickData, n_clicks): 
         new_fig = copy.deepcopy(ann_fig)
         nonlocal clicked
-        if n_clicks > clicked:
+        if n_clicks is not None and n_clicks > clicked:
             clicked = n_clicks
             new_fig['layout']['shapes'] += all_shapes
             return new_fig
             
-        if hoverData is None: return new_fig
-        indexes = hoverData['points'][0]['pointNumbers']
-        time_series = list_of_data[0].iloc[indexes,:2]
+        if clickData is None: return new_fig
+        indexes = dict()
+        
+        for point in clickData['points']:
+            if point['curveNumber'] < len(testing_data):
+                indexes[point['curveNumber']] = point['pointNumbers']
+        
+        time_series = pd.DataFrame(columns=['START_TIME','STOP_TIME'])
+        for key in indexes.keys():
+            time_series = time_series.append(testing_data[key].iloc[indexes[key],:2])
         shapes = []
         for index, series in time_series.iterrows():
             shapes.append(

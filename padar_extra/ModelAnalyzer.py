@@ -25,7 +25,7 @@ import re
 import plotly.offline as py
 import plotly.figure_factory as ff
 import InterativeHistogram
-
+import random
 
 class ModelAnalyzer(object):
     
@@ -291,10 +291,14 @@ class ModelAnalyzer(object):
                 # if it's a singular matrix, ignore this trace
                 print('singular matrix', feature_name)
                 continue
-            mean = list_of_data[0].iloc[:,i].mean()
-            std = list_of_data[0].iloc[:,i].std()
-            start = mean-7*std
-            end =  mean+7*std
+# =============================================================================
+#             mean = list_of_data[0].iloc[:,i].mean()
+#             std = list_of_data[0].iloc[:,i].std()
+#             start = mean-7*std
+#             end =  mean+7*std
+# =============================================================================
+            start = min([min(data.iloc[:,i]) for data in list_of_data])
+            end = max([max(data.iloc[:,i]) for data in list_of_data])
             size = (end-start)/100
             feature_names.append(feature_name)
             for j in range(n_traces):
@@ -417,7 +421,7 @@ def test_on_data(position, time):
     in_data = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SampleData/'+position+'.csv')
     in_data.drop(in_data.columns[0], axis =1, inplace=True)
     features, target = ModelAnalyzer.preprocess(in_data, classes, 'posture', False)
-    model = RandomForestClassifier(n_estimators=50, n_jobs=-1)
+    model = RandomForestClassifier(n_estimators=50, n_jobs=-1, random_state=21, class_weight='balanced')
     model.fit(features, target)
     scores = cross_val_score(model, features, target, cv=10)
     print('cv score:', scores.mean())
@@ -449,15 +453,17 @@ def test_on_data(position, time):
                                   real_lying.iloc[:,2:18], 
                                   real_sitting.iloc[:,2:18]],
                            ['wrong sitting','sample_lying','sample_sitting','real_lying','real_sitting'],
-                           path_out='/Users/zhangzhanming/Desktop/mHealth/Test/'+position+'.')
+                           path_out='/Users/zhangzhanming/Desktop/mHealth/Test/'+'.'.join([position, time])+'.')
     
     InterativeHistogram.gen_interactive_histograms([wrong_feature.iloc[:,:18], 
-                                  sample_lying, 
-                                  sample_sitting, 
                                   real_lying.iloc[:,:18], 
                                   real_sitting.iloc[:,:18]],
-                           ['wrong sitting','sample_lying','sample_sitting','real_lying','real_sitting'],
-                           real_annotation.iloc[:,1:])
+                                  [sample_lying, 
+                                  sample_sitting,],
+                                  
+                           ['lying to sitting','real_lying','real_sitting','sample_lying','sample_sitting'],
+                           real_annotation.iloc[:,1:],
+                           feature_names = analyzer.feature_importance.iloc[:,0].reset_index(drop=True))
 
 test= False
 if test:
@@ -468,4 +474,12 @@ if test:
     wrong_feature.loc[(wrong_feature['MEAN_VM']>0.993878) & (wrong_feature['MEAN_VM']<0.997646),:]['MEAN_VM']
     wrong_feature.iloc[[10,26,50,52,68],:]['MEAN_VM']
     
+    
+    
+    feature_not_fixed = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.DomAnkle.2018-06-20.NotOrientationFixed/Aiden/Derived/PostureAndActivity.feature.csv')
+    feature_fixed = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.DomAnkle.2018-06-20/Aiden/Derived/PostureAndActivity.feature.csv')
    
+    median_x_not_fixed = feature_not_fixed['MEDIAN_Y_ANGLE']
+    median_x_fixed = feature_fixed['MEDIAN_Y_ANGLE']
+    all(median_x_fixed.dropna() == median_x_not_fixed.dropna())
+    

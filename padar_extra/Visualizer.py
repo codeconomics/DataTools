@@ -65,7 +65,6 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
         gantt_fig['layout']['hovermode'] = 'closest'
         
         if non_overlap:
-            print('here')
             for box in gantt_fig['layout']['shapes']:
                 box['y0'] = 0.2
                 box['y1'] = 1.8
@@ -76,6 +75,9 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
                 point['text'] = tick_text[point['y'][0]]
                 point['y'] = [1,1]
                 point['hoverinfo'] = 'text'
+                point['mode'] = 'lines+markers',
+                point['hoveron'] = 'points+fills'
+
             
             del gantt_fig['layout']['yaxis']['tickvals']
             del gantt_fig['layout']['yaxis']['ticktext']
