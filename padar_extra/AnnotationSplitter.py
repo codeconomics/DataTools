@@ -90,7 +90,7 @@ def __get_posture(label, activity):
     if label == 'transition':
         return label
 
-    sit_keywords = ['sit','bik','reclin','watch','eat','gam']
+    sit_keywords = ['sit','bik','reclin','eat']
     if any(re.findall(word, label) for word in sit_keywords):
         return 'sitting'
 
