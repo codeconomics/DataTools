@@ -11,17 +11,20 @@ import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objs as go
 from textwrap import dedent as d
-import json
 import Visualizer
-import ast
 import pandas as pd
 import copy
 
 
-def gen_interactive_histograms(testing_data, training_data, list_of_names, annotations, feature_names=None, classes=None):
+def gen_interactive_histograms(testing_data, training_data, list_of_names, annotations, 
+                               all_testing = None, all_training = None, show_all_data=False,
+                               feature_names=None, classes=None):
     app = dash.Dash()
     if feature_names is None:
-        feature_names = testing_data[0].columns
+        if len(testing_data) > 0:
+            feature_names = testing_data[0].columns
+        elif all_testing is not None:
+            feature_names = all_testing.columns
         if "START_TIME" in feature_names:
             feature_names = feature_names[2:18]
         
@@ -44,6 +47,7 @@ def gen_interactive_histograms(testing_data, training_data, list_of_names, annot
                     })
 
     clicked=0
+    button_clicked=0
     
     styles = {
     'pre': {
@@ -52,10 +56,10 @@ def gen_interactive_histograms(testing_data, training_data, list_of_names, annot
         }
     }
     
-# =============================================================================
-#     if classes is None:
-#         classes = list(testing_data[0].iloc[:,-1].unique())
-# =============================================================================
+    if classes is None and all_testing is not None:
+        classes = list(all_testing.iloc[:,-1].unique())
+    
+    options = [{'label': x, 'value': x} for x in classes]
     
     
     app.layout = html.Div([
@@ -65,12 +69,16 @@ def gen_interactive_histograms(testing_data, training_data, list_of_names, annot
                             id='feature-kind',
                             options=[{'label': feature_names[i], 'value': feature_names[i]} for i in range(len(feature_names))],
                             value= 'MEAN_VM'),
-# =============================================================================
-#                     dcc.Checklist(options=[
-#                             {'label':}
-#                             
-#                             ]])
-# =============================================================================
+                    dcc.Dropdown(
+                            id='truth-class',
+                            options=options,
+                            ),
+                    dcc.Dropdown(
+                            id='result-class',
+                            options=options,
+                            ),
+                    html.Pre(id='class-selection', style=styles['pre']),
+                    html.Button('submit', id='submit-button'),
     ]),
             html.Div([
                     dcc.Graph(
@@ -87,9 +95,92 @@ def gen_interactive_histograms(testing_data, training_data, list_of_names, annot
     
     
     @app.callback(
+            dash.dependencies.Output('class-selection','children'),
+            [dash.dependencies.Input('submit-button','n_clicks')],
+            [dash.dependencies.State('truth-class','value'),
+             dash.dependencies.State('result-class','value'),])
+    def update_class_selection(update_trigger, truth, result):
+# =============================================================================
+#         nonlocal testing_data
+#         nonlocal training_data
+#         nonlocal list_of_names
+# =============================================================================
+        if truth is not None and result is not None:
+# =============================================================================
+#             testing_data = []
+#             training_data = []
+#             list_of_names = []
+#             testing_data.append(all_testing.loc[(all_testing['Truth'] == truth) &
+#                                 (all_testing['Result'] == result),:])
+#             list_of_names.append(truth + ' to ' + result)
+#         
+#             testing_data.append(all_testing.loc[all_testing['Truth'] == truth,:])
+#             list_of_names.append('testing ' + truth)
+#             
+#             testing_data.append(all_testing.loc[all_testing['Truth'] == result,:])
+#             list_of_names.append('testing ' + result)
+#     
+#             training_data.append(all_training.loc[all_training['Truth'] == truth,:])
+#             training_data.append(all_training.loc[all_training['Truth'] == result,:])
+#             list_of_names.append('training '+ truth)
+#             list_of_names.append('training '+ result)
+#             print(list_of_names)
+# =============================================================================
+            return 'Showing {} classified as {}'.format(truth, result)
+        
+        return ""
+    
+    
+    
+    @app.callback(
             dash.dependencies.Output('histograms','figure'),
-            [dash.dependencies.Input('feature-kind','value')])
-    def update_histograms(feature_kind):
+            [dash.dependencies.Input('feature-kind','value'),
+             dash.dependencies.Input('submit-button','n_clicks')],
+             [dash.dependencies.State('truth-class','value'),
+             dash.dependencies.State('result-class','value'),])
+    def update_histograms(feature_kind, update_trigger, truth, result):
+        nonlocal button_clicked
+        if update_trigger is not None and update_trigger > button_clicked:
+            nonlocal testing_data
+            nonlocal training_data
+            nonlocal list_of_names
+            button_clicked = update_trigger
+            testing_data = []
+            training_data = []
+            list_of_names = []
+            testing_data.append(all_testing.loc[(all_testing['Truth'] == truth) &
+                                (all_testing['Result'] == result),:])
+            list_of_names.append(truth + ' to ' + result)
+        
+            testing_data.append(all_testing.loc[all_testing['Truth'] == truth,:])
+            list_of_names.append('testing ' + truth)
+            
+            testing_data.append(all_testing.loc[all_testing['Truth'] == result,:])
+            list_of_names.append('testing ' + result)
+    
+            training_data.append(all_training.loc[all_training['Truth'] == truth,:])
+            training_data.append(all_training.loc[all_training['Truth'] == result,:])
+            list_of_names.append('training '+ truth)
+            list_of_names.append('training '+ result)
+            
+            nonlocal all_shapes
+            all_shapes = []
+            for index, series in testing_data[0].iloc[:,:2].iterrows():
+                all_shapes.append(
+                {'type': 'rect',
+                 'xref': 'x',
+                 'yref': 'paper',
+                 'x0': series[0],
+                 'y0': 0,
+                 'x1': series[1],
+                 'y1': 1,
+                 'fillcolor': '#FF3383',
+                 'opacity': 0.5,
+                 'line': {
+                    'width': 0,
+                    }
+                 })
+            
         fig_list = []
         list_of_data = testing_data + training_data
         n_traces = len(list_of_data)
@@ -108,8 +199,10 @@ def gen_interactive_histograms(testing_data, training_data, list_of_names, annot
 #         end =  mean+7*std
 #         size = (end-start)/100
 # =============================================================================
+        print(feature_kind)
         start = min([min(data.loc[:,feature_kind]) for data in list_of_data])
         end = max([max(data.loc[:,feature_kind]) for data in list_of_data])
+        print(start, end)
         size = (end-start)/100
         for j in range(n_traces):
             fig_list.append(go.Histogram(
@@ -137,12 +230,14 @@ def gen_interactive_histograms(testing_data, training_data, list_of_names, annot
     @app.callback(
         dash.dependencies.Output('annotation', 'figure'),
         [dash.dependencies.Input('histograms', 'clickData'),
-         dash.dependencies.Input('button','n_clicks')])
-    def update_annotation(clickData, n_clicks): 
+         dash.dependencies.Input('button','n_clicks'),
+         dash.dependencies.Input('submit-button','n_clicks')])
+    def update_annotation(clickData, n_clicks, update_trigger): 
         new_fig = copy.deepcopy(ann_fig)
         nonlocal clicked
         if n_clicks is not None and n_clicks > clicked:
             clicked = n_clicks
+    
             new_fig['layout']['shapes'] += all_shapes
             return new_fig
             
@@ -174,7 +269,6 @@ def gen_interactive_histograms(testing_data, training_data, list_of_names, annot
                     })
         new_fig['layout']['shapes'] += shapes
         return new_fig
-        
         
     app.run_server()
 
