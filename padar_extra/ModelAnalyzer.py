@@ -420,7 +420,7 @@ def test_on_data(position, time):
     classes = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SampleData/spadeslab/SPADESInLab-cleaned.class.csv')
     in_data = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SampleData/'+position+'.csv')
     in_data.drop(in_data.columns[0], axis =1, inplace=True)
-    features, target = ModelAnalyzer.preprocess(in_data, classes, 'posture', False)
+    features, target = ModelAnalyzer.preprocess(in_data, classes, 'four_classes', False)
     keep_list = features['MEAN_VM'] < 100
     features = features.loc[keep_list,:]
     target = target[keep_list]
@@ -429,28 +429,30 @@ def test_on_data(position, time):
     scores = cross_val_score(model, features, target, cv=10)
     print('cv score:', scores.mean())
     
-    def test_f(position, time):
-        analyzer = ModelAnalyzer(model = model)
-        aiden_feature_data = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/Derived/PostureAndActivity.feature.csv')
-        class_mapping = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/Derived/class_mapping.csv')
-        real_annotation = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/Derived/splitted.annotation.csv')
-        analyzer.set_class_mapping(class_mapping)
-        analyzer.set_real_annotation(real_annotation)
-        analyzer.set_feature_data(aiden_feature_data)
-        truth, prediction = analyzer.predict_with_real_data(target_class='posture')
-        print('test on real data:', metrics.accuracy_score(truth, prediction))
-        analyzer.gen_confusion_matrix()
-        analyzer.set_root('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/')
-        wrong_feature = analyzer.get_confusion_data('lying','sitting', get_acc_data=False)
-        sample_lying = features[target=='lying']
-        sample_lying = sample_lying[sample_lying.iloc[:,0] < 100]
-        sample_sitting = features[target=='sitting']
-        sample_sitting = sample_sitting[sample_sitting.iloc[:,0] <100]
-        aligned_features = analyzer.aligned_features
-        real_lying = aligned_features[aligned_features['Truth'] == 'lying']
-        real_sitting = aligned_features[aligned_features['Truth'] == 'sitting']
-        analyzer.print_feature_importance()
-        #analyzer.plot_feature_and_raw(wrong_feature, wrong_acc)
+# =============================================================================
+#     def test_f(position, time):
+    analyzer = ModelAnalyzer(model = model)
+# =============================================================================
+    aiden_feature_data = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/Derived/PostureAndActivity.feature.csv')
+    class_mapping = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/Derived/class_mapping.csv')
+    real_annotation = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/Derived/splitted.annotation.csv')
+    analyzer.set_class_mapping(class_mapping)
+    analyzer.set_real_annotation(real_annotation)
+    analyzer.set_feature_data(aiden_feature_data)
+    truth, prediction = analyzer.predict_with_real_data(target_class='four_classes')
+    print('test on real data:', metrics.accuracy_score(truth, prediction))
+    analyzer.gen_confusion_matrix()
+    analyzer.set_root('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.'+position+'.'+time+'/Aiden/')
+    wrong_feature = analyzer.get_confusion_data('lying','sitting', get_acc_data=False)
+    sample_lying = features[target=='lying']
+    sample_lying = sample_lying[sample_lying.iloc[:,0] < 100]
+    sample_sitting = features[target=='sitting']
+    sample_sitting = sample_sitting[sample_sitting.iloc[:,0] <100]
+    aligned_features = analyzer.aligned_features
+    real_lying = aligned_features[aligned_features['Truth'] == 'lying']
+    real_sitting = aligned_features[aligned_features['Truth'] == 'sitting']
+    analyzer.print_feature_importance()
+    #analyzer.plot_feature_and_raw(wrong_feature, wrong_acc)
         
 # =============================================================================
 #         ModelAnalyzer.get_histograms([wrong_feature.iloc[:,2:18], 
@@ -462,27 +464,29 @@ def test_on_data(position, time):
 #                                path_out='/Users/zhangzhanming/Desktop/mHealth/Test/'+'.'.join([position, time])+'.')
 #         
 # =============================================================================
-        features['Truth'] = target
-        InterativeHistogram.gen_interactive_histograms(
-                                        testing_data=[wrong_feature.iloc[:,:18], 
-                                      real_lying.iloc[:,:18], 
-                                      real_sitting.iloc[:,:18]],
-                                      training_data = [sample_lying, 
-                                      sample_sitting,],
-                                       list_of_names = ['lying to sitting','real_lying','real_sitting','sample_lying','sample_sitting'],
-                                       annotations=real_annotation.iloc[:,1:],
-                                       feature_names = analyzer.feature_importance.iloc[:,0].reset_index(drop=True),
-                                       all_testing=aligned_features,
-                                       all_training = features)
+    features['Truth'] = target
+    InterativeHistogram.gen_interactive_histograms(
+                                    testing_data=[wrong_feature.iloc[:,:18], 
+                                  real_lying.iloc[:,:18], 
+                                  real_sitting.iloc[:,:18]],
+                                  training_data = [sample_lying, 
+                                  sample_sitting,],
+                                   list_of_names = ['lying to sitting','real_lying','real_sitting','sample_lying','sample_sitting'],
+                                   annotations=real_annotation.iloc[:,1:],
+                                   feature_names = analyzer.feature_importance.iloc[:,0].reset_index(drop=True),
+                                   all_testing=aligned_features,
+                                   all_training = features)
         
-        test_f('DomAnkle','2018-06-20')
-        test_f('DomAnkle','2018-06-20.NotOrientationFixed')
-        test_f('DomAnkle','2018-07-03')
+# =============================================================================
+#         test_f('DomAnkle','2018-06-20')
+#         test_f('DomAnkle','2018-06-20.NotOrientationFixed')
+#         test_f('DomAnkle','2018-07-03')
+# =============================================================================
 
 test= False
 if test:
     test_on_data('DomAnkle','2018-07-03')
-    test_on_data('DomAnkle','2018-06-20.NotOrientationFixed')
+    test_on_data('DomAnkle','2018-06-20')
 
     position='DomAnkle'
     time = '2018-07-03'

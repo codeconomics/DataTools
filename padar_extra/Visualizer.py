@@ -13,13 +13,14 @@ import plotly.graph_objs as go
 import sys
 import ast
 import os.path
+import datetime as dt
 import numpy as np
 
 
 
 def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None, 
                                feature_index=None, return_fig=False, title='', colors=None,
-                               non_overlap=False):
+                               non_overlap=False, show_colorbar=True):
     """
 
     Create a figure with selected features(if no feature index is passed, select
@@ -27,8 +28,8 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
     create html file in designated file path
 
     Args:
-        featuredata: pandas.DataFrame containing feature data
         annotationdata: pandas.DataFrame containing annotations
+        featuredata: pandas.DataFrame containing feature data
         path_out: path to write the html figure file
         feature_index: the index of the features to select in featuredata dataframe
         return_fig: if return the figure object
@@ -54,6 +55,14 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
     # create dict of annotation data
     annotationdata.reset_index(drop=True, inplace=True)
     if annotationdata.shape[0] > 0:
+        try:
+            test_date_time = pd.to_datetime(annotationdata.iloc[0,2])
+            if isinstance(test_date_time, dt.datetime):
+                annotationdata = annotationdata.iloc[:,1:]
+        except:
+            pass
+        
+        
         gantt_df = annotationdata.iloc[:,:3]
         gantt_df.columns = ['Start','Finish','Task']
         gantt_df['Resource'] = gantt_df['Task']
@@ -61,7 +70,7 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
             colors =  generate_color(len(gantt_df['Resource'].unique()))
         gantt_fig = ff.create_gantt(gantt_df, group_tasks=True, bar_width=0.7,
                                        title=title, index_col='Resource',
-                                       colors=colors, show_colorbar=False)
+                                       colors=colors, show_colorbar=show_colorbar)
         gantt_fig['layout']['hovermode'] = 'closest'
         
         if non_overlap:
@@ -112,7 +121,9 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
                             y = featuredata[featuredata.columns[index]],
                             name = featuredata.columns[index],
                             mode = 'lines+markers',
-                            yaxis='y2')
+                            yaxis='y2',
+                            showlegend=True,
+                            visible='legendonly')
             traces.append(trace)
 
         newdata = gantt_fig['data']
@@ -327,7 +338,7 @@ def generate_color(n):
 
 if __name__ == '__main__':
     if len(sys.argv) <4:
-        print('INSTRUCTION: [feature data file] [annotatoin data file] [pathout] [feature list]')
+        print('INSTRUCTION: [annotatoin data file] [feature data file] [pathout] [feature list]')
     else:
         if len(sys.argv) == 4:
             annotation_feature_grapher(sys.argv[1],sys.argv[2],sys.argv[3])
