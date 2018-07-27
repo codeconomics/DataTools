@@ -2,13 +2,17 @@ import yaml
 import pandas as pd
 import re
 import os 
-import bokeh
-
+from bokeh.models.widgets import DataTable, TableColumn
+from bokeh.models import ColumnDataSource
+from bokeh.io import show, output_file, reset_output
+from bokeh.layouts import widgetbox
 
 def sanity_check(root_path, config_path):
     config = ''
     with open(config_path, 'r') as file:
         config = yaml.load(file)
+    
+    config = __specify_config(config)
     
     if not __validate_config(config):
         raise Exception('Invalid Configuration')
@@ -19,21 +23,66 @@ def sanity_check(root_path, config_path):
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
     
     for check in config:
-        missing_file = missing_file.append(__check_meta_data(root_path, check['pid'], check['num_sensor']))
+        missing_file = missing_file.append(__check_meta_data(root_path, check['pid'], check['num_sensor'], check['sensor_locations']))
         missing_file = missing_file.append(__check_hourly_data(root_path, check['pid'], 
                                                                check['check_annotation'], check['check_event'], 
                                                                check['check_EMA'], check['check_GPS'], 
                                                                check['num_sensor'], check['num_annotator']))
-        
-    pd.to_csv(missing_file, root_path+'/Derived/SanityCheck.csv')
     
+    pid_grouped = missing_file.groupby('PID')
+    for pid, data in pid_grouped:  
+        data.to_csv(root_path+pid+'/Derived/SanityCheck.csv')
+        __graph_report(root_path + pid + '/Derived/', data)
+        
+    __graph_report(root_path, missing_file)
+    
+
+def __specify_config(config):
+    new_config = []
+    if 'sensor_locations' not in config:
+        config['sensor_locations'] = None
+    keys = list(config.keys())
+
+    if 'specification' in keys:
+        keys.remove('specification')
+    keys.remove('pid')
+    pid_list = config['pid']
+    
+    # populate a list of different pids
+    for pid in pid_list:
+        temp_dict = {}
+        temp_dict['pid'] = pid
+        for key in keys:
+            temp_dict[key] = config[key]
+        
+        if 'specification' in config:
+            for specification in config['specification']:
+                if specification['pid'] == pid:
+                    temp_dict.update(specification)
+                    break
+        
+        new_config.append(temp_dict)
+    
+    return new_config
+        
+            
+    
+    
+    
+
 
 def __validate_config(config):
-    return all(all(x in y.keys() for x in ['pid','check_annotation', 
-               'check_event','check_EMA','check_GPS','num_annotator','num_sensor']) for y in config)
+    valid =  all(all(x in y.keys() for x in ['pid','check_annotation', 
+               'check_event','check_EMA','check_GPS','num_annotator','num_sensor', 'sensor_locations']) for y in config)
+    
+    for check in config:
+        if check['sensor_locations'] is not None:
+            valid = valid and len(check['sensor_locations']) == check['num_sensor']
+        
+    return valid
 
     
-def __check_meta_data(root_path, pid, num_sensor):
+def __check_meta_data(root_path, pid, num_sensor, sensor_locations):
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
     target_path = root_path +pid+'/Derived/'
     required_file_name_list = ['location_mapping.csv', 'subject.csv', 'sessions.csv']
@@ -45,14 +94,29 @@ def __check_meta_data(root_path, pid, num_sensor):
 
                 if required_file == 'location_mapping.csv':
                     location_mapping = pd.read_csv(target_path + existed_file)
-                    # TODO: how to count sensors
-                    # TODO: find missing location
+                    if sensor_locations is None:
+                        if num_sensor != location_mapping.shape[0]:
+                            missing_file = missing_file.append({'PID': pid,
+                                                'FileType': 'meta',
+                                                'FilePath': target_path + required_file,
+                                                'Note': '{} sensors missing in location mapping'.format(num_sensor - location_mapping.shape[0])},
+                                                ignore_index=True)
+                    else:
+                        existed_location = list(location_mapping.iloc[:,2].values)
+                        for location in sensor_locations:
+                            if location not in existed_location:
+                                missing_file = missing_file.append({'PID': pid,
+                                                'FileType': 'meta',
+                                                'FilePath': target_path + required_file,
+                                                'Note': location + ' missing in location mapping'},
+                                                ignore_index=True)
+                            
                 break
         
         if not_there:
             missing_file = missing_file.append({'PID': pid,
-                                                'FileType': required_file,
-                                                'FilePath': target_path,
+                                                'FileType': 'meta',
+                                                'FilePath': target_path + required_file,
                                                 'Note': ''},
                                                 ignore_index=True)    
     return missing_file
@@ -79,7 +143,6 @@ def __check_hourly_data(root_path, pid, check_annotation, check_event, check_EMA
                                 ignore_index=True)
     
     for time in hourly_path:
-        print(time)
         target_path = root_path + pid + '/MasterSynced/'+ time
         files = os.listdir(target_path)
         
@@ -139,11 +202,25 @@ def __check_hourly_data(root_path, pid, check_annotation, check_event, check_EMA
                      'FilePath': target_path,
                      'Note': ''},
                     ignore_index=True)
+    
+    return missing_file
         
         
+def __graph_report(root_path, missing_file):
+    reset_output()
+    output_file(root_path + 'report.html' , mode='absolute')
+    #output_file("report.html")
     
+    source = ColumnDataSource(missing_file)
     
+    columns = [TableColumn(field=name, title=name) for name in missing_file.columns.values]
     
+    data_table = DataTable(source=source, columns=columns, width=1000, height=280,
+                           fit_columns=True)
+
+    show(widgetbox(data_table))
     
+
+
 
 
