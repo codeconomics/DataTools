@@ -4,21 +4,18 @@ import re
 import os 
 from bokeh.models.widgets import DataTable, TableColumn
 from bokeh.models import ColumnDataSource
-from bokeh.io import show, output_file, reset_output
+from bokeh.io import show, output_file, reset_output, save
 from bokeh.layouts import widgetbox
 import sys
 
 
 def sanity_check(root_path, config_path):
-    if root_path[-1] != '/':
-        root_path += '/'
-        
     config = ''
     with open(config_path, 'r') as file:
         config = yaml.load(file)
         
     if config['pid'] is None:
-        config['pid'] = [name for name in os.listdir(root_path) if os.path.isdir(root_path + name)]
+        config['pid'] = [name for name in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, name))]
         
     config = __specify_config(config)
     
@@ -36,8 +33,8 @@ def sanity_check(root_path, config_path):
     
     pid_grouped = missing_file.groupby('PID')
     for pid, data in pid_grouped:  
-        data.to_csv(root_path+pid+'/Derived/SanityCheck.csv')
-        __graph_report(root_path + pid + '/Derived/', data)
+        data.to_csv(os.path.join(root_path,pid,'Derived/SanityCheck.csv'))
+        __graph_report(os.path.join(root_path, pid, 'Derived'), data)
         
     __graph_report(root_path, missing_file)
     
@@ -70,11 +67,6 @@ def __specify_config(config):
     
     return new_config
         
-            
-    
-    
-    
-
 
 def __validate_config(config):
     valid =  all(all(x in y.keys() for x in ['pid','check_annotation', 
@@ -89,7 +81,7 @@ def __validate_config(config):
     
 def __check_meta_data(root_path, pid, num_sensor, sensor_locations):
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
-    target_path = root_path +pid+'/Derived/'
+    target_path = os.path.join(root_path, pid, 'Derived')
     required_file_name_list = ['location_mapping.csv', 'subject.csv', 'sessions.csv']
     for required_file in required_file_name_list:
         not_there = True
@@ -98,12 +90,12 @@ def __check_meta_data(root_path, pid, num_sensor, sensor_locations):
                 not_there = False
 
                 if required_file == 'location_mapping.csv':
-                    location_mapping = pd.read_csv(target_path + existed_file)
+                    location_mapping = pd.read_csv(os.path.join(target_path, existed_file))
                     if sensor_locations is None:
                         if num_sensor != location_mapping.shape[0]:
                             missing_file = missing_file.append({'PID': pid,
                                                 'FileType': 'meta',
-                                                'FilePath': target_path + required_file,
+                                                'FilePath': os.path.join(target_path, required_file),
                                                 'Note': '{} sensors missing in location mapping'.format(num_sensor - location_mapping.shape[0])},
                                                 ignore_index=True)
                     else:
@@ -112,7 +104,7 @@ def __check_meta_data(root_path, pid, num_sensor, sensor_locations):
                             if location not in existed_location:
                                 missing_file = missing_file.append({'PID': pid,
                                                 'FileType': 'meta',
-                                                'FilePath': target_path + required_file,
+                                                'FilePath': os.path.join(target_path, required_file),
                                                 'Note': location + ' missing in location mapping'},
                                                 ignore_index=True)
                             
@@ -121,7 +113,7 @@ def __check_meta_data(root_path, pid, num_sensor, sensor_locations):
         if not_there:
             missing_file = missing_file.append({'PID': pid,
                                                 'FileType': 'meta',
-                                                'FilePath': target_path + required_file,
+                                                'FilePath': os.path.join(target_path, required_file),
                                                 'Note': ''},
                                                 ignore_index=True)    
     return missing_file
@@ -131,24 +123,25 @@ def __check_hourly_data(root_path, pid, check_annotation, check_event, check_EMA
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
     # traverse the directory tree to find the start time and end time
     hourly_path = []
-    for path, dirs, files in os.walk(root_path + pid + '/MasterSynced/'):
-        finds = re.findall('MasterSynced/(\d{4}/\d{2}/\d{2}/\d{2})', path)
+    for path, dirs, files in os.walk(os.path.join(root_path, pid, 'MasterSynced')):
+        finds = re.findall('MasterSynced[/\\\\](\d{4})[/\\\\](\d{2})[/\\\\](\d{2})[/\\\\](\d{2})', path)
         if finds:
-            hourly_path += finds
+            hourly_path.append('-'.join(finds[0]))
     start_time = hourly_path[0]
     end_time = hourly_path[-1]
     
-    expected_range = list(pd.date_range(start_time, end_time, freq='H').strftime('%Y/%m/%d/%H'))
+    expected_range = list(pd.date_range(start_time, end_time, freq='H').strftime('%Y-%m-%d-%H'))
     for file_name in expected_range:
         if file_name not in hourly_path:
             missing_file = missing_file.append({'PID':pid,
                                  'FileType': 'directory',
-                                 'FilePath': root_path + pid + '/MasterSynced/',
+                                 'FilePath': os.path.join(root_path, pid, 'MasterSynced'),
                                  'Note': 'No directory for the time ' + file_name},
                                 ignore_index=True)
     
     for time in hourly_path:
-        target_path = root_path + pid + '/MasterSynced/'+ time
+        time_path = os.path.join(*time.split('-'))
+        target_path = os.path.join(root_path, pid, 'MasterSynced', time_path)
         files = os.listdir(target_path)
         
         sensor_count = 0
@@ -213,7 +206,7 @@ def __check_hourly_data(root_path, pid, check_annotation, check_event, check_EMA
         
 def __graph_report(root_path, missing_file):
     reset_output()
-    output_file(root_path + 'report.html' , mode='absolute')
+    output_file(os.path.join(root_path,'report.html') , mode='absolute')
     #output_file("report.html")
     
     source = ColumnDataSource(missing_file)
@@ -223,7 +216,7 @@ def __graph_report(root_path, missing_file):
     data_table = DataTable(source=source, columns=columns, width=1000, height=280,
                            fit_columns=True)
 
-    show(widgetbox(data_table))
+    save(widgetbox(data_table))
     
 
 if __name__ == '__main__':
