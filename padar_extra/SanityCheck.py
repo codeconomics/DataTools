@@ -33,7 +33,7 @@ def sanity_check(root_path, config_path):
     
     pid_grouped = missing_file.groupby('PID')
     for pid, data in pid_grouped:  
-        data.to_csv(os.path.join(root_path,pid,'Derived/SanityCheck.csv'))
+        data.to_csv(os.path.join(root_path,pid,'Derived','SanityCheck.csv'))
         __graph_report(os.path.join(root_path, pid, 'Derived'), data)
         
     __graph_report(root_path, missing_file)
@@ -82,6 +82,9 @@ def __validate_config(config):
 def __check_meta_data(root_path, pid, num_sensor, sensor_locations):
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
     target_path = os.path.join(root_path, pid, 'Derived')
+    if not os.path.isdir(target_path):
+        os.mkdir(target_path)
+            
     required_file_name_list = ['location_mapping.csv', 'subject.csv', 'sessions.csv']
     for required_file in required_file_name_list:
         not_there = True
