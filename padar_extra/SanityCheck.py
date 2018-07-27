@@ -6,6 +6,8 @@ from bokeh.models.widgets import DataTable, TableColumn
 from bokeh.models import ColumnDataSource
 from bokeh.io import show, output_file, reset_output
 from bokeh.layouts import widgetbox
+import sys
+
 
 def sanity_check(root_path, config_path):
     config = ''
@@ -220,6 +222,12 @@ def __graph_report(root_path, missing_file):
 
     show(widgetbox(data_table))
     
+
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        print('INSTRUCTION: [root_path] [config_path]')
+    else:
+        sanity_chec(sys.argv[1], sys.argv[2])
 
 
 
