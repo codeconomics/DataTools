@@ -33,7 +33,7 @@ def sanity_check(root_path, config_path):
     
     pid_grouped = missing_file.groupby('PID')
     for pid, data in pid_grouped:  
-        data.to_csv(os.path.join(root_path,pid,'Derived','SanityCheck.csv'))
+        data.to_csv(os.path.join(root_path,pid,'Derived','missing_files.csv'))
         __graph_report(os.path.join(root_path, pid, 'Derived'), data)
         
     __graph_report(root_path, missing_file)
@@ -209,7 +209,7 @@ def __check_hourly_data(root_path, pid, check_annotation, check_event, check_EMA
         
 def __graph_report(root_path, missing_file):
     reset_output()
-    output_file(os.path.join(root_path,'report.html') , mode='absolute')
+    output_file(os.path.join(root_path,'report.html') , mode='inline')
     #output_file("report.html")
     
     source = ColumnDataSource(missing_file)
