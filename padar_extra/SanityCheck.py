@@ -10,18 +10,21 @@ import sys
 
 
 def sanity_check(root_path, config_path):
+    if root_path[-1] != '/':
+        root_path += '/'
+        
     config = ''
     with open(config_path, 'r') as file:
         config = yaml.load(file)
-    
+        
+    if config['pid'] is None:
+        config['pid'] = [name for name in os.listdir(root_path) if os.path.isdir(root_path + name)]
+        
     config = __specify_config(config)
     
     if not __validate_config(config):
         raise Exception('Invalid Configuration')
-    
-    if root_path[-1] != '/':
-        root_path += '/'
-        
+
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
     
     for check in config:
