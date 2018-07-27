@@ -230,7 +230,7 @@ if __name__ == '__main__':
     if len(sys.argv) != 3:
         print('INSTRUCTION: [root_path] [config_path]')
     else:
-        sanity_chec(sys.argv[1], sys.argv[2])
+        sanity_check(sys.argv[1], sys.argv[2])
 
 
 
