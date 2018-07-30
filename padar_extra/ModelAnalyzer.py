@@ -24,8 +24,7 @@ import os
 import re
 import plotly.offline as py
 import plotly.figure_factory as ff
-import InterativeHistogram
-import random
+import InteractiveHistogram
 
 class ModelAnalyzer(object):
     
@@ -352,69 +351,7 @@ class ModelAnalyzer(object):
         importance.sort_values('IMPORTANCE',ascending=False, inplace=True)
         self.feature_importance = importance
         print(importance)
-    
-# =============================================================================
-#     @staticmethod
-#     def get_distribution(list_of_data, list_of_names = None, return_fig=False, path_out='/Users/zhangzhanming/Desktop/mHealth/Test/'):
-#         n_traces = len(list_of_data)
-#         feature_names = []
-#         fig_list = []
-#         for i in range(list_of_data[0].shape[1]):
-#             max_val = list_of_data[0].iloc[:,i].max()
-#             min_val = list_of_data[0].iloc[:,i].min()
-#             size = (max_val-min_val)/100
-#             feature_name = list_of_data[0].columns[i]
-#             if size==0:
-#                 # if it's a singular matrix, ignore this trace
-#                 print('singular matrix', feature_name)
-#                 continue
-#             feature_list = []
-#             for j in range(n_traces):
-#                 feature_list.append(list_of_data[j].iloc[:,i])
-#             
-#             feature_names.append(feature_name)
-#             print(feature_name, size)
-#             fig_list.append(ff.create_distplot(feature_list, list_of_names,
-#                                                           bin_size=size))
-#         
-#         new_fig = fig_list[0]
-#         for i in range(1,len(fig_list)):
-#             print(i)
-#             new_fig.data += fig_list[i].data
-#         
-#         buttons=list()
-#         visible = [False]*n_traces*len(feature_names)
-#         
-#         for i in range(len(feature_names)):
-#             new_visible = visible[:]
-#             
-#             for j in range(i*n_traces, (i+1)*n_traces):
-#                 new_visible[j]=True
-#                 
-#             buttons.append(dict(label=feature_names[i],
-#                                 method='update',
-#                                 args=[{'visible' : new_visible},
-#                                       {'title' : feature_names[i]}
-#                                       ]))
-#         buttons = list(buttons)
-#         updatemenus= list([
-#                 dict(active=-1,
-#                      buttons=buttons)])
-#     
-# 
-# #        for i in range(len(fig.data)):
-# #            fig.data[i]['visible'] = 'legendonly'
-#         
-#     
-#         new_fig.layout.update(dict(updatemenus=updatemenus))
-#         
-#         if return_fig:
-#             return fig
-#         py.plot(new_fig, filename=path_out+'distrubition.html')
-# 
-#     
-# =============================================================================
-    
+        
 
 def test_on_data(position, time):
     classes = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/SampleData/spadeslab/SPADESInLab-cleaned.class.csv')
