@@ -28,12 +28,12 @@ def __parse(pid, root_path):
         # tokens = os.path.basename(filepath).split(' ')[0].split('_')
         # loc = list(filter(lambda token: 'Left' in token or 'Right' in token, tokens))[0]
 
-        if re.findall('_.*non.*dominant', os.path.basename(filepath), re.IGNORECASE):
+        if re.findall('_.*non.*dom', os.path.basename(filepath), re.IGNORECASE):
             dominant='NonDominant'
         else:
             dominant='Dominant'
         
-        loc = re.search('((Ankle)|(Thigh)|(Waist)|(Wrist))',
+        loc = re.search('((Ankle)|(Thigh)|(Waist)|(Wrist)|(Hip)',
             os.path.basename(filepath), re.IGNORECASE)
         if loc is None:
             print('failed to parse ' + os.path.basename(filepath))
