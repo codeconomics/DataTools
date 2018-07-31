@@ -33,13 +33,21 @@ def __parse(pid, root_path):
         else:
             dominant='Dominant'
         
-        loc = re.search('((Ankle)|(Thigh)|(Waist)|(Wrist)|(Hip)',
+        loc = re.search('((Ankle)|(Thigh)|(Waist)|(Wrist)|(Hip))',
             os.path.basename(filepath), re.IGNORECASE)
         if loc is None:
             print('failed to parse ' + os.path.basename(filepath))
+            return
         else:
             loc = loc.group(1)
-        loc = loc.lower().capitalize()
+            loc = loc.lower()
+            if loc == 'hip':
+                loc = 'waist'
+            # here is the convention of spades 2 day dataset
+            if loc == 'wrist':
+                dominant = 'NonDominant'
+
+        loc = loc.capitalize()
         
         loc = dominant + loc
 
