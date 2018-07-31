@@ -27,8 +27,22 @@ def __parse(pid, root_path):
         print("parse location from " + filepath)
         # tokens = os.path.basename(filepath).split(' ')[0].split('_')
         # loc = list(filter(lambda token: 'Left' in token or 'Right' in token, tokens))[0]
-        loc = re.search('_((DominantAnkle)|(DominantThigh)|(DominantWaist)|(Wrist_NonDominant)) ',
-            os.path.basename(filepath), re.IGNORECASE).group(1)
+
+        if re.findall('_.*non.*dominant', os.path.basename(filepath), re.IGNORECASE):
+            dominant='NonDominant'
+        else:
+            dominant='Dominant'
+        
+        loc = re.search('((Ankle)|(Thigh)|(Waist)|(Wrist))',
+            os.path.basename(filepath), re.IGNORECASE)
+        if loc is None:
+            print('failed to parse ' + os.path.basename(filepath))
+        else:
+            loc = loc.group(1)
+        loc = loc.lower().capitalize()
+        
+        loc = dominant + loc
+
         with open(filepath, 'r') as f:
             headers = list(islice(f, 2))
             matches = re.search('Serial Number: ([A-Z0-9]+)', headers[1])
