@@ -35,6 +35,9 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
         return_fig: if return the figure object
         titile: the title of the graph. Default empty string
         colors: preset colors for different labels. If empty generate random colors
+        non_overlap: boolean indicate if annotations have overlaps. If True, will create
+            a spectrum graph for annotations
+        show_colorbar: if show legend
 
     Returns:
         if return_fig == False: the url of the created figure
@@ -287,47 +290,19 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
 
     return py.plot(fig, filename=path_out+'feature_graph.html')
 
-# =============================================================================
-# 
-# def annotation_grapher(annotationdata, feature_index = None, path_out=None, return_fig=False, colors=None):
-#     traces = []
-#     if annotationdata.shape[0] > 0:
-#         if colors == None:
-#             colors = {}
-#             for label in annotationdata.iloc[:,2].unique():
-#                 colors[label] = generate_color(1)[0]
-#         grouped = annotationdata.groupby(annotationdata.columns[2])
-#         for key, data in grouped:
-#             traces.append(go.Bar(x=pd.to_datetime(data.iloc[:,0])+(pd.to_datetime(data.iloc[:,1])-pd.to_datetime(data.iloc[:,0]))/2,
-#                    y=[3]*len(data.iloc[:,0]),
-#                    showlegend=False,
-#                    marker=dict(color=colors[key],
-#                                colorbar=dict(xanchor='left')),
-#                    name=key,
-#                    hovertext=
-#                    [' '.join([pd.to_datetime(data.iloc[x,0]).strftime('%H:%M:%S'), 
-#                               'to', pd.to_datetime(data.iloc[x,1]).strftime('%H:%M:%S')]) for x in range(len(data.iloc[:,1]))]))
-#     else:
-#         place_holder = pd.DataFrame({'START_TIME':np.datetime64('1971-01-01'), 
-#                                      'TEMP':0}, index=[0])
-#         traces.append(go.Bar(x=place_holder[place_holder.columns[0]], 
-#                              y=3, showlegend=False))  
-#         
-#     layout=dict(yaxis=dict(range=[0,3]), height=600)
-#     fig = dict(data=traces, layout=layout)
-#         
-# 
-#     if return_fig:
-#          return fig
-# 
-#     if os.path.isdir(path_out):
-#         path_out = path_out + '/'
-# 
-#     return py.plot(fig, filename=path_out+'feature_graph.html')
-#         
-# 
-# =============================================================================
+
 def generate_color(n):
+    """
+    Generate a list of n random colors
+    
+    Args:
+        n: int number of random colors to generate
+    
+    Returns:
+        a list of random colors
+    
+    """
+
     colors = []
     for i in range(n):
         r = int(random.random() * 256)

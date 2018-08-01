@@ -16,9 +16,36 @@ import pandas as pd
 import copy
 
 
-def gen_interactive_histograms(testing_data, training_data, list_of_names, annotations, 
-                               all_testing = None, all_training = None, show_all_data=False,
+def gen_interactive_histograms(annotations, testing_data = [], training_data = [], list_of_names = None, 
+                               all_testing = None, all_training = None, 
                                feature_names=None, classes=None):
+    
+    """
+    Create an interactive graph which has the histograms of features and 
+    a spectrum graph of annotations
+    
+    Args:
+        annotations: pandas.DataFrame annotation file in mHealth format
+        testing_data: a list of testing datasets to visualize initially, default []
+        training_data: a list of training datasets to visualize initially, default []
+        list_of_names: a list of names assigned to testing_data and training_data passed, default []
+        all_testing: pandas.DataFrame the whole testing features dataset in mHealth format with 
+            prediction result in 'Result' column and ground truth in 'Truth' columnn
+        all_training: pandas.DataFrame the whole training features dataset in mHealth format with 
+            ground truth in 'Truth' column
+        feature_names: a list of feature name strings to indicate the order to display in drop down selectio
+            menu, default []
+        classes: a list of classes existing in classification to visualize. Default [] to select all 
+            exisiting unique classes
+    
+    """
+    
+    if len(testing_data) == 0 and all_testing is None:
+        raise Exception('No testing data provided')
+        
+    if len(training_data) == 0 and all_training is None:
+        raise Exception('No training data provided')
+    
     app = dash.Dash()
     if feature_names is None:
         if len(testing_data) > 0:
@@ -30,21 +57,23 @@ def gen_interactive_histograms(testing_data, training_data, list_of_names, annot
         
     ann_fig = Visualizer.annotation_feature_grapher(annotations, return_fig=True, non_overlap=True)
     all_shapes = []
-    for index, series in testing_data[0].iloc[:,:2].iterrows():
-            all_shapes.append(
-                    {'type': 'rect',
-                     'xref': 'x',
-                     'yref': 'paper',
-                     'x0': series[0],
-                     'y0': 0,
-                     'x1': series[1],
-                     'y1': 1,
-                     'fillcolor': '#FF3383',
-                     'opacity': 0.5,
-                     'line': {
-                        'width': 0,
-                     }
-                    })
+    
+    if len(testing_data) > 0:
+        for index, series in testing_data[0].iloc[:,:2].iterrows():
+                all_shapes.append(
+                        {'type': 'rect',
+                         'xref': 'x',
+                         'yref': 'paper',
+                         'x0': series[0],
+                         'y0': 0,
+                         'x1': series[1],
+                         'y1': 1,
+                         'fillcolor': '#FF3383',
+                         'opacity': 0.5,
+                         'line': {
+                            'width': 0,
+                         }
+                        })
 
     clicked=0
     button_clicked=0
@@ -100,32 +129,7 @@ def gen_interactive_histograms(testing_data, training_data, list_of_names, annot
             [dash.dependencies.State('truth-class','value'),
              dash.dependencies.State('result-class','value'),])
     def update_class_selection(update_trigger, truth, result):
-# =============================================================================
-#         nonlocal testing_data
-#         nonlocal training_data
-#         nonlocal list_of_names
-# =============================================================================
         if truth is not None and result is not None:
-# =============================================================================
-#             testing_data = []
-#             training_data = []
-#             list_of_names = []
-#             testing_data.append(all_testing.loc[(all_testing['Truth'] == truth) &
-#                                 (all_testing['Result'] == result),:])
-#             list_of_names.append(truth + ' to ' + result)
-#         
-#             testing_data.append(all_testing.loc[all_testing['Truth'] == truth,:])
-#             list_of_names.append('testing ' + truth)
-#             
-#             testing_data.append(all_testing.loc[all_testing['Truth'] == result,:])
-#             list_of_names.append('testing ' + result)
-#     
-#             training_data.append(all_training.loc[all_training['Truth'] == truth,:])
-#             training_data.append(all_training.loc[all_training['Truth'] == result,:])
-#             list_of_names.append('training '+ truth)
-#             list_of_names.append('training '+ result)
-#             print(list_of_names)
-# =============================================================================
             return 'Showing {} classified as {}'.format(truth, result)
         
         return ""
@@ -163,6 +167,7 @@ def gen_interactive_histograms(testing_data, training_data, list_of_names, annot
             list_of_names.append('training '+ truth)
             list_of_names.append('training '+ result)
             
+            # everytime changed feature selection, update default annotation high light
             nonlocal all_shapes
             all_shapes = []
             for index, series in testing_data[0].iloc[:,:2].iterrows():
@@ -184,6 +189,8 @@ def gen_interactive_histograms(testing_data, training_data, list_of_names, annot
         fig_list = []
         list_of_data = testing_data + training_data
         n_traces = len(list_of_data)
+        if n_traces < 1:
+            return None
         max_val = list_of_data[0].loc[:,feature_kind].max()
         min_val = list_of_data[0].loc[:,feature_kind].min()
         range_val = (max_val-min_val)/100
