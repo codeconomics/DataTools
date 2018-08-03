@@ -89,8 +89,27 @@ class ModelAnalyzer(object):
 
     
     def get_confusion_data(self,true_value, predicted_value, target_data=None,
-                           prediction=None, feature_data=None, root=None, 
+                           prediction=None, , time_series=None, feature_data=None, root=None, 
                            get_feature_data=True, get_acc_data=True):
+    """
+    provide the feature data or raw data misclassified
+
+    Args:
+        true_value: string ground truth
+        predicted_value: predicted result
+        target_data: series of ground truth
+        prediction: series of predictions
+        time_series: the START_TIME END_TIME timestamps of features
+        feature_data: feature matrix
+        root: root folder of raw data which has MasterSynced
+        get_feature_data: if return feature data of misclassified result
+        get_acc_data: if return raw data of misclassified result
+    
+    Returns:
+        feature data of misclassified result if get_feature_data == true
+        raw data of misclassifed result if get_acc_data == true
+
+    """
         if target_data is None:
             target_data = self.target_data
         if prediction is None:
@@ -100,14 +119,20 @@ class ModelAnalyzer(object):
         if root is None:
             root = self.root
 
+        indexes = (target_data==true_value) & (prediction==predicted_value)
+        if time_series is None:
+            if feature_data is not None:
+                time_series = feature_data.loc['START_TIME', 'STOP_TIME']
+            else:
+                raise Exception('No valid time stamps provided')
+        
         if get_feature_data:
-            indexes = (target_data==true_value) & (prediction==predicted_value)
             features = feature_data.loc[indexes,:]  
             if not get_acc_data:
                 return features
             
         if get_acc_data:
-            times = feature_data.loc[indexes, ['START_TIME','STOP_TIME']]
+            times = time_series[indexes]
             times.iloc[:,0] = pd.to_datetime(times.iloc[:,0])
             times.iloc[:,1] = pd.to_datetime(times.iloc[:,1])
             times['key'] = times['START_TIME'].dt.strftime('%Y/%m/%d/%H')
