@@ -7,19 +7,23 @@ from bokeh.models import ColumnDataSource
 from bokeh.io import show, output_file, reset_output, save
 from bokeh.layouts import widgetbox
 import sys
+#import click
 
-
-def sanity_check(root_path, config_path):
+#@click.command()
+def check_missing_file(root_path, config_path):
     config = ''
     with open(config_path, 'r') as file:
         config = yaml.load(file)
         
     if config['pid'] is None:
         config['pid'] = [name for name in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, name))]
-        
+
+    if 'sensor_locations' not in config:
+        config['sensor_locations'] = None
+
     config = __specify_config(config)
     
-    if not __validate_config(config):
+    if not __validate_config_missing_file(config):
         raise Exception('Invalid Configuration')
 
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
@@ -41,8 +45,6 @@ def sanity_check(root_path, config_path):
 
 def __specify_config(config):
     new_config = []
-    if 'sensor_locations' not in config:
-        config['sensor_locations'] = None
     keys = list(config.keys())
 
     if 'specification' in keys:
@@ -68,7 +70,7 @@ def __specify_config(config):
     return new_config
         
 
-def __validate_config(config):
+def __validate_config_missing_file(config):
     valid =  all(all(x in y.keys() for x in ['pid','check_annotation', 
                'check_event','check_EMA','check_GPS','num_annotator','num_sensor', 'sensor_locations']) for y in config)
     
@@ -222,12 +224,68 @@ def __graph_report(root_path, missing_file):
     save(widgetbox(data_table))
     
 
+def check_sampling_rate(root_path, config_path):
+    root_path = os.path.realpath(root_path)
+    config = []
+    with open(config_path, 'r') as file:
+        config = yaml.load(file)
+    
+    if config['pid'] is None:
+        config['pid'] = [name for name in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, name))]
+    
+    config = __specify_config(config)
+    abnormal_rate = pd.DataFrame(columns = ['PID','TimePeriod', 'SamplingRate', 'FilePath'])
+    
+    for check in config:
+        abnormal_rate = abnormal_rate.append(__check_sampling_rate(check['pid'], check['claimed_rate'], check['accept_range'], root_path))
+        
+    abnormal_rate.to_csv(os.path.join(root_path, 'WrongSamplingRate.csv'))
+    
+    pid_grouped = abnormal_rate.groupby('PID')
+    for pid, data in pid_grouped:  
+        data.to_csv(os.path.join(root_path,pid,'Derived','WrongSamplingRate.csv'))
+
+
+
+def __check_sampling_rate(pid, claim_rate, accept_range, root_path):
+    abnormal_rate = pd.DataFrame(columns = ['PID','TimePeriod', 'SamplingRate', 'FilePath'])
+    hourly_path = []
+    for path, dirs, files in os.walk(os.path.join(root_path, pid, 'MasterSynced')):
+        finds = re.findall('MasterSynced[/\\\\](\d{4})[/\\\\](\d{2})[/\\\\](\d{2})[/\\\\](\d{2})', path)
+        if finds:
+            hourly_path.append('-'.join(finds[0]))
+
+    for time in hourly_path:
+        time_path = os.path.join(*time.split('-'))
+        target_path = os.path.join(root_path, pid, 'MasterSynced', time_path)
+        files = list(os.listdir(target_path))
+        files = list(filter(lambda x: re.findall('.sensor.csv', x), files))
+        
+        for sensor_file in files:
+            print('CHECKING SAMPLING RATE ', pid, sensor_file)
+            sensor_data = pd.read_csv(os.path.join(target_path, sensor_file))
+            sensor_data.iloc[:,0] = pd.to_datetime(sensor_data.iloc[:,0])
+            groups = sensor_data.iloc[:,[0,1]].groupby(pd.Grouper(key=sensor_data.columns[0], freq = '1min')).count()
+            normalrate = 60*claim_rate
+            for index, count in groups.iterrows():
+                if count[0] <= normalrate*(1-accept_range) or count[0] >= normalrate*(1+accept_range):
+                    abnormal_rate = abnormal_rate.append({'PID' : pid,
+                                                          'TimePeriod': index,
+                                                          'SamplingRate': count[0],
+                                                          'FilePath': os.path.join(target_path, sensor_file)},
+                                        ignore_index=True)
+    return abnormal_rate
+            
+
+
+
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print('INSTRUCTION: [root_path] [config_path]')
+    if len(sys.argv) != 4:
+        print('INSTRUCTION: MISSING_FILE/SAMPLING_RATE [root_path] [config_path]')
     else:
-        sanity_check(sys.argv[1], sys.argv[2])
-
-
-
-
+        if sys.argv[1] == 'MISING_FILE':
+            check_missing_file(sys.argv[2], sys.argv[3])
+        elif sys.argv[1] == 'SAMPLING_RATE':
+            check_sampling_rate(sys.argv[2], sys.argv[3])
+        else:
+            print('wrong command')
