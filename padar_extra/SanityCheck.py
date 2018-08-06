@@ -127,11 +127,7 @@ def __check_meta_data(root_path, pid, num_sensor, sensor_locations):
 def __check_hourly_data(root_path, pid, check_annotation, check_event, check_EMA, check_GPS, num_sensor, num_annotator):
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
     # traverse the directory tree to find the start time and end time
-    hourly_path = []
-    for path, dirs, files in os.walk(os.path.join(root_path, pid, 'MasterSynced')):
-        finds = re.findall('MasterSynced[/\\\\](\d{4})[/\\\\](\d{2})[/\\\\](\d{2})[/\\\\](\d{2})', path)
-        if finds:
-            hourly_path.append('-'.join(finds[0]))
+    hourly_path = __get_hourly_path(root_path, pid)
     start_time = hourly_path[0]
     end_time = hourly_path[-1]
     
@@ -237,23 +233,18 @@ def check_sampling_rate(root_path, config_path):
     abnormal_rate = pd.DataFrame(columns = ['PID','TimePeriod', 'SamplingRate', 'FilePath'])
     
     for check in config:
-        abnormal_rate = abnormal_rate.append(__check_sampling_rate(check['pid'], check['claimed_rate'], check['accept_range'], root_path))
+        abnormal_rate = abnormal_rate.append(__parse_sampling_rate(check['pid'], check['claimed_rate'], check['accept_range'], root_path))
         
-    abnormal_rate.to_csv(os.path.join(root_path, 'WrongSamplingRate.csv'))
+    abnormal_rate.to_csv(os.path.join(root_path, 'sensor_exceptions.csv'))
     
     pid_grouped = abnormal_rate.groupby('PID')
     for pid, data in pid_grouped:  
-        data.to_csv(os.path.join(root_path,pid,'Derived','WrongSamplingRate.csv'))
+        data.to_csv(os.path.join(root_path,pid,'Derived','sensor_exceptions.csv'))
 
 
-
-def __check_sampling_rate(pid, claim_rate, accept_range, root_path):
+def __parse_sampling_rate(pid, claim_rate, accept_range, root_path):
     abnormal_rate = pd.DataFrame(columns = ['PID','TimePeriod', 'SamplingRate', 'FilePath'])
-    hourly_path = []
-    for path, dirs, files in os.walk(os.path.join(root_path, pid, 'MasterSynced')):
-        finds = re.findall('MasterSynced[/\\\\](\d{4})[/\\\\](\d{2})[/\\\\](\d{2})[/\\\\](\d{2})', path)
-        if finds:
-            hourly_path.append('-'.join(finds[0]))
+    hourly_path = __get_hourly_path(root_path, pid)
 
     for time in hourly_path:
         time_path = os.path.join(*time.split('-'))
@@ -277,7 +268,122 @@ def __check_sampling_rate(pid, claim_rate, accept_range, root_path):
     return abnormal_rate
             
 
+def __get_hourly_path(root_path, pid):
+    hourly_path = []
+    for path, dirs, files in os.walk(os.path.join(root_path, pid, 'MasterSynced')):
+        finds = re.findall('MasterSynced[/\\\\](\d{4})[/\\\\](\d{2})[/\\\\](\d{2})[/\\\\](\d{2})', path)
+        if finds:
+            hourly_path.append('-'.join(finds[0]))
+    return hourly_path
 
+
+def check_annotation(root_path, config_path):
+    root_path = os.path.realpath(root_path)
+    config = []
+    with open(config_path, 'r') as file:
+        config = yaml.load(file)
+    
+    if config['pid'] is None:
+        config['pid'] = [name for name in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, name))]
+    
+    config = __specify_config(config)
+    annotation_exceptions = pd.DataFrame(columns=['PID','ANNOTATOR','START_TIME','STOP_TIME','LABEL_NAME','ISSUE'])
+
+    for check in config:
+        annotation_exceptions = annotation_exceptions.append(__parse_annotation(check['pid'], check['lower_bound'], check['upper_bound'], root_path))
+
+    annotation_exceptions.to_csv(os.path.join(root_path, 'annotation_exceptions.csv'))
+    
+    pid_grouped = annotation_exceptions.groupby('PID')
+    for pid, data in pid_grouped:  
+        data.to_csv(os.path.join(root_path,pid,'Derived','annotation_exceptions.csv'))
+
+def __parse_annotation(pid, lower_bound, upper_bound, root_path):
+    annotation_exceptions = pd.DataFrame(columns=['PID','ANNOTATOR','START_TIME','STOP_TIME','LABEL_NAME','ISSUE'])
+    hourly_path = __get_hourly_path(root_path, pid)
+    all_annotation_files = {}
+
+    for time in hourly_path:
+        time_path = os.path.join(*time.split('-'))
+        target_path = os.path.join(root_path, pid, 'MasterSynced', time_path)
+        files = list(os.listdir(target_path))
+        files = list(filter(lambda x: re.findall('.annotation.csv', x), files))
+        for file_path in files:
+            file_id = re.findall('(.*)\\.\d{4}-\d{2}-\d{2}', file_path)
+            if len(file_id) != 1:
+                raise Exception('Failed to parse annotation file name:', file_path) 
+            else:
+                file_id = file_id[0]
+            if file_id in all_annotation_files:
+                all_annotation_files[file_id].append(os.path.join(target_path, file_path))
+            else:
+                all_annotation_files[file_id] = [os.path.join(target_path, file_path)]
+
+    all_annotation_table = __combine_annotation(all_annotation_files)
+    
+    lower_bound = pd.Timedelta(lower_bound)
+    upper_bound = pd.Timedelta(upper_bound)
+    
+    # check the length of annotations
+    for annotator, annotation_table in all_annotation_table.items():
+        annotation_table.iloc[:,1] = pd.to_datetime(annotation_table.iloc[:,1])
+        annotation_table.iloc[:,2] = pd.to_datetime(annotation_table.iloc[:,2])
+        for index, series in annotation_table.iterrows():
+            start_time = series[1]
+            stop_time = series[2]
+            if stop_time - start_time < lower_bound:
+                annotation_exceptions = annotation_exceptions.append({'PID': pid,
+                                              'ANNOTATOR': annotator,
+                                              'START_TIME': start_time,
+                                              'STOP_TIME': stop_time,
+                                              'LABEL_NAME': series[3],
+                                              'ISSUE': 'Too short, duration: {}'.format(stop_time - start_time),
+                                              },
+                                             ignore_index = True)
+                
+            if stop_time - start_time > upper_bound:
+                annotation_exceptions = annotation_exceptions.append({'PID': pid,
+                                              'ANNOTATOR': annotator,
+                                              'START_TIME': start_time,
+                                              'STOP_TIME': stop_time,
+                                              'LABEL_NAME': series[3],
+                                              'ISSUE': 'Too long, duration: {}'.format(stop_time - start_time),
+                                              },
+                                             ignore_index = True)   
+                
+        # create histogram of activities by pid
+        annotation_table['DURATION'] = annotation_table.iloc[:,2] - annotation_table.iloc[:,1]
+        annotation_table['DAY'] = annotation_table.iloc[:,1].dt.day
+        group_by_activity = annotation_table.iloc[:,[3,-1,-2]].groupby(by=['DAY','LABEL_NAME']).sum()
+        
+        """
+        TODO: Create Histogram Here
+        """
+            
+    
+    return annotation_exceptions
+
+
+def __combine_annotation(all_annotation_files):
+    all_annotation_table = {}
+    for key, value in all_annotation_files.items():
+        all_annotation = []
+        for file_path in value:
+            annotation_table = pd.read_csv(file_path)
+            for index, series in annotation_table.iterrows():
+                if len(all_annotation) > 0 and all_annotation[-1].iloc[3] == series.iloc[3]:
+                    if all_annotation[-1].iloc[2] == series.iloc[1] or ((pd.to_datetime(all_annotation[-1].iloc[2]) + dt.timedelta(seconds=1)).hour == pd.to_datetime(series.iloc[1]).hour
+                                     and pd.to_datetime(series.iloc[1]).second == 0 and pd.to_datetime(series.iloc[1]).minute == 0):
+                        #print('Concatenate activity', all_annotation[-1].iloc[1:4], series.iloc[1:4])
+                        all_annotation[-1].iloc[2] = series.iloc[2]
+                else:
+                    all_annotation.append(series)
+
+        all_annotation = pd.DataFrame(all_annotation)
+        all_annotation_table[key] = all_annotation
+    
+    return all_annotation_table
+                    
 
 if __name__ == '__main__':
     if len(sys.argv) != 4:
