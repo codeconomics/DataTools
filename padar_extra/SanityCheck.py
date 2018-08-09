@@ -5,42 +5,99 @@ import os
 from bokeh.models.widgets import DataTable, TableColumn
 from bokeh.models import ColumnDataSource
 from bokeh.io import show, output_file, reset_output, save
-from bokeh.layouts import widgetbox
-import sys
-#import click
+from bokeh import layouts
+from bokeh.plotting import figure
+from bokeh.transform import factor_cmap
+from bokeh.models import DatetimeTickFormatter
+from bokeh.models.widgets import Panel, Tabs
+from bokeh.models.tools import HoverTool
+import math
 
-#@click.command()
-def check_missing_file(root_path, config_path):
-    config = ''
+import sys
+import datetime as dt
+
+def sanity_check(root_path, config_path):
+    root_path = os.path.realpath(root_path)
+    config = dict()
     with open(config_path, 'r') as file:
         config = yaml.load(file)
-        
+    
     if config['pid'] is None:
         config['pid'] = [name for name in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, name))]
-
+    
     if 'sensor_locations' not in config:
         config['sensor_locations'] = None
 
     config = __specify_config(config)
+
+    to_check_missing_file = any([x['check_missing_file'] for x in config])
+    to_check_sampling_rate = any([x['check_sampling_rate'] for x in config])
+    to_check_annotation = any([x['check_annotation'] for x in config])
+
+    # create the report elements according to configuration
+    total_report_elements = []
+    pid_report_elements = dict()
+
+    if to_check_missing_file:
+        missing_file, missing_file_table_pid = check_missing_file(root_path, config)
+        for pid in missing_file_table_pid:
+            if pid not in pid_report_elements:
+                pid_report_elements[pid] = []
+            pid_report_elements[pid].append(missing_file_table_pid[pid])
+        total_report_elements.append(missing_file)
     
-    if not __validate_config_missing_file(config):
-        raise Exception('Invalid Configuration')
+    if to_check_sampling_rate:
+        abnormal_rate, sensor_tables = check_sampling_rate(root_path, config)
+        for pid in sensor_tables:
+            if pid not in pid_report_elements:
+                pid_report_elements[pid] = []
+            pid_report_elements[pid].append(sensor_tables[pid])
+        total_report_elements.append(abnormal_rate)
+    
+    if to_check_annotation:
+        annotation_exceptions, histogram_by_day = check_annotation(root_path, config)
+        for pid in histogram_by_day:
+            if pid not in pid_report_elements:
+                pid_report_elements[pid] = []
+            pid_report_elements[pid].append(histogram_by_day[pid])
+        total_report_elements.append(annotation_exceptions)
+
+    __write_report(root_path, total_report_elements)
+    for pid in pid_report_elements:
+        __write_report(os.path.join(root_path, pid, 'Derived'), pid_report_elements[pid])
+    
+     
+def __write_report(root_path, element_list):
+    reset_output()
+    output_file(os.path.join(root_path,'report.html') , mode='inline')
+    #output_file("report.html")
+    report = layouts.column(element_list)
+    save(report)
+        
+
+def check_missing_file(root_path, config):
+    
+    # if not __validate_config_missing_file(config):
+    #     raise Exception('Invalid Configuration')
 
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
     
     for check in config:
-        missing_file = missing_file.append(__check_meta_data(root_path, check['pid'], check['num_sensor'], check['sensor_locations']))
-        missing_file = missing_file.append(__check_hourly_data(root_path, check['pid'], 
-                                                               check['check_annotation'], check['check_event'], 
-                                                               check['check_EMA'], check['check_GPS'], 
-                                                               check['num_sensor'], check['num_annotator']))
-    
+        if check['check_missing_file']:
+            missing_file = missing_file.append(__check_meta_data(root_path, check['pid'], check['num_sensor'], check['sensor_locations']))
+            missing_file = missing_file.append(__check_hourly_data(root_path, check['pid'], 
+                                                                check['check_annotation_file'], check['check_event'], 
+                                                                check['check_EMA'], check['check_GPS'], 
+                                                                check['num_sensor'], check['num_annotator']))
+        
     pid_grouped = missing_file.groupby('PID')
+    missing_file_table_pid = dict()
+
     for pid, data in pid_grouped:  
         data.to_csv(os.path.join(root_path,pid,'Derived','missing_files.csv'))
-        __graph_report(os.path.join(root_path, pid, 'Derived'), data)
+        missing_file_table_pid[pid] = __graph_table(data)
         
-    __graph_report(root_path, missing_file)
+    return __graph_table(missing_file), missing_file_table_pid
     
 
 def __specify_config(config):
@@ -71,7 +128,7 @@ def __specify_config(config):
         
 
 def __validate_config_missing_file(config):
-    valid =  all(all(x in y.keys() for x in ['pid','check_annotation', 
+    valid =  all(all(x in y.keys() for x in ['pid','check_annotation_file', 
                'check_event','check_EMA','check_GPS','num_annotator','num_sensor', 'sensor_locations']) for y in config)
     
     for check in config:
@@ -82,6 +139,7 @@ def __validate_config_missing_file(config):
 
     
 def __check_meta_data(root_path, pid, num_sensor, sensor_locations):
+    print('CHECKING META DATA FILE', pid)
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
     target_path = os.path.join(root_path, pid, 'Derived')
     if not os.path.isdir(target_path):
@@ -124,7 +182,7 @@ def __check_meta_data(root_path, pid, num_sensor, sensor_locations):
     return missing_file
                 
 
-def __check_hourly_data(root_path, pid, check_annotation, check_event, check_EMA, check_GPS, num_sensor, num_annotator):
+def __check_hourly_data(root_path, pid, check_annotation_file, check_event, check_EMA, check_GPS, num_sensor, num_annotator):
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
     # traverse the directory tree to find the start time and end time
     hourly_path = __get_hourly_path(root_path, pid)
@@ -141,6 +199,7 @@ def __check_hourly_data(root_path, pid, check_annotation, check_event, check_EMA
                                 ignore_index=True)
     
     for time in hourly_path:
+        print('CHECKING HOURLY DATA FILE', pid, time)
         time_path = os.path.join(*time.split('-'))
         target_path = os.path.join(root_path, pid, 'MasterSynced', time_path)
         files = os.listdir(target_path)
@@ -160,7 +219,7 @@ def __check_hourly_data(root_path, pid, check_annotation, check_event, check_EMA
                                     },
                                     ignore_index=True)
         
-        if check_annotation:
+        if check_annotation_file:
             annotation_count = 0
             for file_name in files:
                 if re.findall('.annotation.csv', file_name):
@@ -204,42 +263,32 @@ def __check_hourly_data(root_path, pid, check_annotation, check_event, check_EMA
     
     return missing_file
         
-        
-def __graph_report(root_path, missing_file):
-    reset_output()
-    output_file(os.path.join(root_path,'report.html') , mode='inline')
-    #output_file("report.html")
     
-    source = ColumnDataSource(missing_file)
-    
-    columns = [TableColumn(field=name, title=name) for name in missing_file.columns.values]
-    
+def __graph_table(table):
+    source = ColumnDataSource(table)
+    columns = [TableColumn(field=name, title=name) for name in table.columns.values]
     data_table = DataTable(source=source, columns=columns, width=1000, height=280,
                            fit_columns=True)
 
-    save(widgetbox(data_table))
+    return layouts.widgetbox(data_table)
     
 
-def check_sampling_rate(root_path, config_path):
-    root_path = os.path.realpath(root_path)
-    config = []
-    with open(config_path, 'r') as file:
-        config = yaml.load(file)
-    
-    if config['pid'] is None:
-        config['pid'] = [name for name in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, name))]
-    
-    config = __specify_config(config)
+def check_sampling_rate(root_path, config):
     abnormal_rate = pd.DataFrame(columns = ['PID','TimePeriod', 'SamplingRate', 'FilePath'])
     
     for check in config:
-        abnormal_rate = abnormal_rate.append(__parse_sampling_rate(check['pid'], check['claimed_rate'], check['accept_range'], root_path))
+        if check['check_sampling_rate']:
+            abnormal_rate = abnormal_rate.append(__parse_sampling_rate(check['pid'], check['claimed_rate'], check['accept_range'], root_path))
         
     abnormal_rate.to_csv(os.path.join(root_path, 'sensor_exceptions.csv'))
-    
+    sensor_tables = dict()
+
     pid_grouped = abnormal_rate.groupby('PID')
     for pid, data in pid_grouped:  
         data.to_csv(os.path.join(root_path,pid,'Derived','sensor_exceptions.csv'))
+        sensor_tables[pid] = __graph_table(data)
+        
+    return __graph_table(abnormal_rate), sensor_tables
 
 
 def __parse_sampling_rate(pid, claim_rate, accept_range, root_path):
@@ -277,28 +326,29 @@ def __get_hourly_path(root_path, pid):
     return hourly_path
 
 
-def check_annotation(root_path, config_path):
-    root_path = os.path.realpath(root_path)
-    config = []
-    with open(config_path, 'r') as file:
-        config = yaml.load(file)
-    
-    if config['pid'] is None:
-        config['pid'] = [name for name in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, name))]
-    
-    config = __specify_config(config)
+def check_annotation(root_path, config):
     annotation_exceptions = pd.DataFrame(columns=['PID','ANNOTATOR','START_TIME','STOP_TIME','LABEL_NAME','ISSUE'])
-
+    
+    histogram_by_day = dict()
+    
     for check in config:
-        annotation_exceptions = annotation_exceptions.append(__parse_annotation(check['pid'], check['lower_bound'], check['upper_bound'], root_path))
+        if check['check_annotation']:
+            new_exceptions, figures = __parse_annotation(check['pid'], check['lower_bound'], check['upper_bound'], root_path)
+            annotation_exceptions = annotation_exceptions.append(new_exceptions)
+            histogram_by_day[check['pid']] = figures
 
     annotation_exceptions.to_csv(os.path.join(root_path, 'annotation_exceptions.csv'))
     
     pid_grouped = annotation_exceptions.groupby('PID')
     for pid, data in pid_grouped:  
         data.to_csv(os.path.join(root_path,pid,'Derived','annotation_exceptions.csv'))
+    
+    # return the elements need to included in the report
+    return __graph_table(annotation_exceptions), histogram_by_day
+
 
 def __parse_annotation(pid, lower_bound, upper_bound, root_path):
+    print('CHECKING ANNOTATION', pid)
     annotation_exceptions = pd.DataFrame(columns=['PID','ANNOTATOR','START_TIME','STOP_TIME','LABEL_NAME','ISSUE'])
     hourly_path = __get_hourly_path(root_path, pid)
     all_annotation_files = {}
@@ -354,14 +404,41 @@ def __parse_annotation(pid, lower_bound, upper_bound, root_path):
         # create histogram of activities by pid
         annotation_table['DURATION'] = annotation_table.iloc[:,2] - annotation_table.iloc[:,1]
         annotation_table['DAY'] = annotation_table.iloc[:,1].dt.day
-        group_by_activity = annotation_table.iloc[:,[3,-1,-2]].groupby(by=['DAY','LABEL_NAME']).sum()
-        
-        """
-        TODO: Create Histogram Here
-        """
+        group_by_activity = annotation_table.iloc[:,[3,-1,-2]].groupby(by='DAY')
+        graph_list = []
+        for day, data in group_by_activity:
+            group_by_duration= data.iloc[:,[0,2]].groupby('LABEL_NAME').sum()
+            group_by_duration = group_by_duration.sort_values('DURATION', ascending=False)
+            source = ColumnDataSource(data=dict(activity=group_by_duration.index.values, 
+                                                duration=group_by_duration.iloc[:,0],
+                                                time=group_by_duration.iloc[:,0].apply(lambda s: '{:02}:{:02}:{:02}'.format(int(s.total_seconds()) // 3600, int(s.total_seconds()) % 3600 // 60, int(s.total_seconds()) % 60))))
+            p = figure(x_range=group_by_duration.index.values, plot_height=350,
+                       plot_width = 500,
+                       toolbar_location=None,
+                       tooltips=[('activity','@activity'),
+                                  ('duration','@time')])
+
+            p.vbar(x='activity', top='duration', width=0.9, source=source)
+            graph_list.append(Panel(child=p, title=pid + ": day "+str(day)))
+            p.yaxis.formatter=DatetimeTickFormatter(
+                hours = ['%Hh', '%Hh:%Mm'],
+                minutes = ['%Mm'],
+                minsec = ['%Mm:%Ss']
+
+            )
+            p.xaxis.major_label_orientation = 1.2
+
             
-    
-    return annotation_exceptions
+        histogram_by_day = layouts.widgetbox(Tabs(tabs=graph_list), width=500)
+        table_graph = __graph_table(annotation_exceptions)
+        
+    # =============================================================================
+    #         reset_output()
+    #         output_file("/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/histo.html")
+    #         show(layouts.row(histogram_by_day, table_graph))
+    # =============================================================================
+
+    return annotation_exceptions, layouts.row(histogram_by_day, table_graph)
 
 
 def __combine_annotation(all_annotation_files):
@@ -386,12 +463,21 @@ def __combine_annotation(all_annotation_files):
                     
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
-        print('INSTRUCTION: MISSING_FILE/SAMPLING_RATE [root_path] [config_path]')
+    sanity_check("/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2day", "/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/config.txt")
+    if len(sys.argv) != 3:
+        print('INSTRUCTION: [root_path] [config_path]')
     else:
-        if sys.argv[1] == 'MISING_FILE':
-            check_missing_file(sys.argv[2], sys.argv[3])
-        elif sys.argv[1] == 'SAMPLING_RATE':
-            check_sampling_rate(sys.argv[2], sys.argv[3])
-        else:
-            print('wrong command')
+        sanity_check(sys.argv[1], sys.argv[2])
+
+
+
+# if __name__ == '__main__':
+#     if len(sys.argv) != 4:
+#         print('INSTRUCTION: MISSING_FILE/SAMPLING_RATE [root_path] [config_path]')
+#     else:
+#         if sys.argv[1] == 'MISING_FILE':
+#             check_missing_file(sys.argv[2], sys.argv[3])
+#         elif sys.argv[1] == 'SAMPLING_RATE':
+#             check_sampling_rate(sys.argv[2], sys.argv[3])
+#         else:
+#             print('wrong command')
