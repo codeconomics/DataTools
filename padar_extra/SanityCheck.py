@@ -7,14 +7,14 @@ from bokeh.models import ColumnDataSource
 from bokeh.io import show, output_file, reset_output, save
 from bokeh import layouts
 from bokeh.plotting import figure
-from bokeh.transform import factor_cmap
-from bokeh.models import DatetimeTickFormatter
+from bokeh.models import DatetimeTickFormatter, DateFormatter
 from bokeh.models.widgets import Panel, Tabs
 from bokeh.models.tools import HoverTool
 import math
-
 import sys
 import datetime as dt
+import numpy as np
+import copy
 
 def sanity_check(root_path, config_path):
     root_path = os.path.realpath(root_path)
@@ -55,12 +55,12 @@ def sanity_check(root_path, config_path):
         total_report_elements.append(abnormal_rate)
     
     if to_check_annotation:
-        annotation_exceptions, histogram_by_day = check_annotation(root_path, config)
+        total_annotation_graphs, histogram_by_day = check_annotation(root_path, config)
         for pid in histogram_by_day:
             if pid not in pid_report_elements:
                 pid_report_elements[pid] = []
             pid_report_elements[pid].append(histogram_by_day[pid])
-        total_report_elements.append(annotation_exceptions)
+        total_report_elements += total_annotation_graphs
 
     __write_report(root_path, total_report_elements)
     for pid in pid_report_elements:
@@ -119,7 +119,7 @@ def __specify_config(config):
         if 'specification' in config:
             for specification in config['specification']:
                 if specification['pid'] == pid:
-                    temp_dict.update(specification)
+                    temp_dict.update(copy.deepcopy(specification))
                     break
         
         new_config.append(temp_dict)
@@ -266,7 +266,13 @@ def __check_hourly_data(root_path, pid, check_annotation_file, check_event, chec
     
 def __graph_table(table):
     source = ColumnDataSource(table)
-    columns = [TableColumn(field=name, title=name) for name in table.columns.values]
+    columns = []
+    for name in table.columns.values:
+        if pd.core.dtypes.common.is_datetime_or_timedelta_dtype(table[name]):
+            columns.append(TableColumn(field=name, title=name, formatter=DateFormatter(format='%T')))
+        else:
+            columns.append(TableColumn(field=name, title=name))
+
     data_table = DataTable(source=source, columns=columns, width=1000, height=280,
                            fit_columns=True)
 
@@ -343,8 +349,16 @@ def check_annotation(root_path, config):
     for pid, data in pid_grouped:  
         data.to_csv(os.path.join(root_path,pid,'Derived','annotation_exceptions.csv'))
     
+    histogram_tabs = []
+    for pid, graphs in histogram_by_day.items():
+        histogram_tabs.append(Panel(child=layouts.column(*graphs[0:-1]), title=pid))
+        histogram_by_day[pid] = layouts.column(*graphs)
+
+    total_annotation_graphs = []
+    total_annotation_graphs.append(layouts.widgetbox(Tabs(tabs=histogram_tabs)))
+    total_annotation_graphs.append(__graph_table(annotation_exceptions))
     # return the elements need to included in the report
-    return __graph_table(annotation_exceptions), histogram_by_day
+    return total_annotation_graphs, histogram_by_day
 
 
 def __parse_annotation(pid, lower_bound, upper_bound, root_path):
@@ -373,9 +387,11 @@ def __parse_annotation(pid, lower_bound, upper_bound, root_path):
     
     lower_bound = pd.Timedelta(lower_bound)
     upper_bound = pd.Timedelta(upper_bound)
-    
-    # check the length of annotations
+    histogram_list = []
+    episode_table_list = []
+
     for annotator, annotation_table in all_annotation_table.items():
+        # check the length of annotations
         annotation_table.iloc[:,1] = pd.to_datetime(annotation_table.iloc[:,1])
         annotation_table.iloc[:,2] = pd.to_datetime(annotation_table.iloc[:,2])
         for index, series in annotation_table.iterrows():
@@ -400,13 +416,20 @@ def __parse_annotation(pid, lower_bound, upper_bound, root_path):
                                               'ISSUE': 'Too long, duration: {}'.format(stop_time - start_time),
                                               },
                                              ignore_index = True)   
-                
-        # create histogram of activities by pid
+          
+        # create annotation table by pid
         annotation_table['DURATION'] = annotation_table.iloc[:,2] - annotation_table.iloc[:,1]
         annotation_table['DAY'] = annotation_table.iloc[:,1].dt.day
         group_by_activity = annotation_table.iloc[:,[3,-1,-2]].groupby(by='DAY')
-        graph_list = []
+
+        # create graphs by day
+        
+        histogram_graph_list = []
+        episode_graph_list = []
+        
         for day, data in group_by_activity:
+            # create histogram of duration per activity by day
+            
             group_by_duration= data.iloc[:,[0,2]].groupby('LABEL_NAME').sum()
             group_by_duration = group_by_duration.sort_values('DURATION', ascending=False)
             source = ColumnDataSource(data=dict(activity=group_by_duration.index.values, 
@@ -419,7 +442,8 @@ def __parse_annotation(pid, lower_bound, upper_bound, root_path):
                                   ('duration','@time')])
 
             p.vbar(x='activity', top='duration', width=0.9, source=source)
-            graph_list.append(Panel(child=p, title=pid + ": day "+str(day)))
+            # TODO: solve the problem of multiple annotator here
+            histogram_graph_list.append(Panel(child=p, title=pid + ": day "+str(day)))
             p.yaxis.formatter=DatetimeTickFormatter(
                 hours = ['%Hh', '%Hh:%Mm'],
                 minutes = ['%Mm'],
@@ -427,18 +451,29 @@ def __parse_annotation(pid, lower_bound, upper_bound, root_path):
 
             )
             p.xaxis.major_label_orientation = 1.2
-
             
-        histogram_by_day = layouts.widgetbox(Tabs(tabs=graph_list), width=500)
-        table_graph = __graph_table(annotation_exceptions)
+            # compute episodes statistics: episodes count, duration mean, duration std by day
+            
+            stats_table = pd.DataFrame(columns=['Activity','Count','DurationMean','DurationStd'])
+            
+            for activity in group_by_duration.index.values:
+                stats_table = stats_table.append(pd.Series({'Activity': activity,
+                                              'Count': data[data['LABEL_NAME'] == activity].shape[0],
+                                              'DurationMean': np.mean(data[data['LABEL_NAME'] == activity]['DURATION']),
+                                              'DurationStd': np.std(data[data['LABEL_NAME'] == activity]['DURATION'])
+                                                  }),
+                                    ignore_index=True)
+            episode_graph_list.append(Panel(child=__graph_table(stats_table), title=pid + ": day "+str(day)))
+            
+    
+        histogram_list.append(layouts.widgetbox(Tabs(tabs=histogram_graph_list), width=500))
+        episode_table_list.append(layouts.widgetbox(Tabs(tabs=episode_graph_list), width=500))
         
-    # =============================================================================
-    #         reset_output()
-    #         output_file("/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/histo.html")
-    #         show(layouts.row(histogram_by_day, table_graph))
-    # =============================================================================
+        
+        
+    table_graph = __graph_table(annotation_exceptions)
 
-    return annotation_exceptions, layouts.row(histogram_by_day, table_graph)
+    return annotation_exceptions, [*histogram_list, *episode_table_list,table_graph]
 
 
 def __combine_annotation(all_annotation_files):
@@ -468,16 +503,6 @@ if __name__ == '__main__':
         print('INSTRUCTION: [root_path] [config_path]')
     else:
         sanity_check(sys.argv[1], sys.argv[2])
-
-
-
-# if __name__ == '__main__':
-#     if len(sys.argv) != 4:
-#         print('INSTRUCTION: MISSING_FILE/SAMPLING_RATE [root_path] [config_path]')
-#     else:
-#         if sys.argv[1] == 'MISING_FILE':
-#             check_missing_file(sys.argv[2], sys.argv[3])
-#         elif sys.argv[1] == 'SAMPLING_RATE':
-#             check_sampling_rate(sys.argv[2], sys.argv[3])
-#         else:
-#             print('wrong command')
+        
+        
+        
