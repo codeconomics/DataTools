@@ -15,6 +15,9 @@ import sys
 import datetime as dt
 import numpy as np
 import copy
+import re
+from dateutil.parser import parse
+from bokeh.models.widgets import Paragraph
 
 def sanity_check(root_path, config_path):
     root_path = os.path.realpath(root_path)
@@ -27,6 +30,12 @@ def sanity_check(root_path, config_path):
     
     if 'sensor_locations' not in config:
         config['sensor_locations'] = None
+    
+    if 'check_episode_duration' not in config:
+        config['check_episode_duration'] = None
+        
+    if 'check_episode_time' not in config:
+        config['check_episode_time'] = None
 
     config = __specify_config(config)
 
@@ -37,7 +46,8 @@ def sanity_check(root_path, config_path):
     # create the report elements according to configuration
     total_report_elements = []
     pid_report_elements = dict()
-
+    
+    total_report_elements.append(Paragraph(text='Missing File List', style={'color':'blue'}))
     if to_check_missing_file:
         missing_file, missing_file_table_pid = check_missing_file(root_path, config)
         for pid in missing_file_table_pid:
@@ -46,6 +56,7 @@ def sanity_check(root_path, config_path):
             pid_report_elements[pid].append(missing_file_table_pid[pid])
         total_report_elements.append(missing_file)
     
+    total_report_elements.append(Paragraph(text='Sensor File Exceptions', style={'color':'blue'}))
     if to_check_sampling_rate:
         abnormal_rate, sensor_tables = check_sampling_rate(root_path, config)
         for pid in sensor_tables:
@@ -54,6 +65,7 @@ def sanity_check(root_path, config_path):
             pid_report_elements[pid].append(sensor_tables[pid])
         total_report_elements.append(abnormal_rate)
     
+    total_report_elements.append(Paragraph(text='Annotation Reports and Exceptions', style={'color':'blue'}))
     if to_check_annotation:
         total_annotation_graphs, histogram_by_day = check_annotation(root_path, config)
         for pid in histogram_by_day:
@@ -272,7 +284,8 @@ def __graph_table(table):
             columns.append(TableColumn(field=name, title=name, formatter=DateFormatter(format='%T')))
         else:
             columns.append(TableColumn(field=name, title=name))
-
+    
+    columns[-1].width = 1000
     data_table = DataTable(source=source, columns=columns, width=1000, height=280,
                            fit_columns=True)
 
@@ -339,7 +352,10 @@ def check_annotation(root_path, config):
     
     for check in config:
         if check['check_annotation']:
-            new_exceptions, figures = __parse_annotation(check['pid'], check['lower_bound'], check['upper_bound'], root_path)
+            new_exceptions, figures = __parse_annotation(check['pid'], check['lower_bound'], check['upper_bound'], 
+                                                         check['check_episode_duration'], 
+                                                         check['check_episode_time'],
+                                                         root_path)
             annotation_exceptions = annotation_exceptions.append(new_exceptions)
             histogram_by_day[check['pid']] = figures
 
@@ -361,7 +377,7 @@ def check_annotation(root_path, config):
     return total_annotation_graphs, histogram_by_day
 
 
-def __parse_annotation(pid, lower_bound, upper_bound, root_path):
+def __parse_annotation(pid, lower_bound, upper_bound, check_episode_duration, check_episode_time, root_path):
     print('CHECKING ANNOTATION', pid)
     annotation_exceptions = pd.DataFrame(columns=['PID','ANNOTATOR','START_TIME','STOP_TIME','LABEL_NAME','ISSUE'])
     hourly_path = __get_hourly_path(root_path, pid)
@@ -391,7 +407,8 @@ def __parse_annotation(pid, lower_bound, upper_bound, root_path):
     episode_table_list = []
 
     for annotator, annotation_table in all_annotation_table.items():
-        # check the length of annotations
+        
+        # check if the duration of annotations within specified length
         annotation_table.iloc[:,1] = pd.to_datetime(annotation_table.iloc[:,1])
         annotation_table.iloc[:,2] = pd.to_datetime(annotation_table.iloc[:,2])
         for index, series in annotation_table.iterrows():
@@ -415,7 +432,17 @@ def __parse_annotation(pid, lower_bound, upper_bound, root_path):
                                               'LABEL_NAME': series[3],
                                               'ISSUE': 'Too long, duration: {}'.format(stop_time - start_time),
                                               },
-                                             ignore_index = True)   
+                                             ignore_index = True)  
+            
+            if check_episode_duration is not None:
+                annotation_exceptions = annotation_exceptions.append(__check_episode_duration(series, 
+                                                                                              check_episode_duration, pid, annotator),
+                                                                    ignore_index = True)
+            if check_episode_time is not None:
+                annotation_exceptions = annotation_exceptions.append(__check_episode_time(series, 
+                                                                                              check_episode_time, pid, annotator),
+                                                                    ignore_index = True)
+                
           
         # create annotation table by pid
         annotation_table['DURATION'] = annotation_table.iloc[:,2] - annotation_table.iloc[:,1]
@@ -434,7 +461,7 @@ def __parse_annotation(pid, lower_bound, upper_bound, root_path):
             group_by_duration = group_by_duration.sort_values('DURATION', ascending=False)
             source = ColumnDataSource(data=dict(activity=group_by_duration.index.values, 
                                                 duration=group_by_duration.iloc[:,0],
-                                                time=group_by_duration.iloc[:,0].apply(lambda s: '{:02}:{:02}:{:02}'.format(int(s.total_seconds()) // 3600, int(s.total_seconds()) % 3600 // 60, int(s.total_seconds()) % 60))))
+                                                time=group_by_duration.iloc[:,0].apply(__format_time_delta)))
             p = figure(x_range=group_by_duration.index.values, plot_height=350,
                        plot_width = 500,
                        toolbar_location=None,
@@ -495,8 +522,68 @@ def __combine_annotation(all_annotation_files):
         all_annotation_table[key] = all_annotation
     
     return all_annotation_table
-                    
 
+
+def __check_episode_duration(series, episode_duration_limits, pid, annotator):
+    """
+    Check the episode duration by activity time
+    """
+    
+    if series[3].lower() in episode_duration_limits:
+        duration = series[2] - series[1]
+        limits = episode_duration_limits[series[3].lower()]
+        if not isinstance(limits, list):
+            limits = [limits]
+            
+        for time_limit in limits:
+            if '>' in time_limit:
+                time_token = pd.Timedelta(re.findall('>(.*)', time_limit)[0])
+                if duration > time_token:
+                    return pd.Series({'PID':pid,
+                                      'ANNOTATOR': annotator,
+                                      'START_TIME':series[1],
+                                      'STOP_TIME': series[2],
+                                      'LABEL_NAME': series[3],
+                                      'ISSUE': 'Activity {} beyond specified limit {}, duration: {}'.format(
+                                              series[3], __format_time_delta(time_token), duration)})
+            elif '<' in time_limit:
+                time_token = pd.Timedelta(re.findall('<(.*)', time_limit)[0])
+                if duration < time_token:
+                    return pd.Series({'PID':pid,
+                                      'ANNOTATOR': annotator,
+                                      'START_TIME':series[1],
+                                      'STOP_TIME': series[2],
+                                      'LABEL_NAME': series[3],
+                                      'ISSUE': 'Activity {} below specified limit {}, duration: {}'.format(
+                                              series[3], __format_time_delta(time_token), duration)})    
+    return None
+
+
+def __format_time_delta(s):
+    return  '{:02}:{:02}:{:02}'.format(int(s.total_seconds()) // 3600, int(s.total_seconds()) % 3600 // 60, int(s.total_seconds()) % 60)
+
+
+def __check_episode_time(series, episode_time_limits, pid, annotator):
+    """
+    Check if the episode happened in specified abnormal period of time
+    """
+    
+    if series[3].lower() in episode_time_limits:
+        limits = episode_time_limits[series[3].lower()]
+        lower_bound = parse(limits[0]).time()
+        upper_bound = parse(limits[1]).time()
+        start_time = pd.to_datetime(series[1]).time()
+        stop_time = pd.to_datetime(series[2]).time()
+        if stop_time > lower_bound and start_time < upper_bound:
+            return pd.Series({'PID':pid,
+                              'ANNOTATOR': annotator,
+                              'START_TIME': series[1],
+                              'STOP_TIME': series[2],
+                              'LABEL_NAME': series[3],
+                              'ISSUE': 'Activity {} in specified abnormal period of time: {} to {}'.format(
+                                      series[3], lower_bound, upper_bound)})
+            
+        
 if __name__ == '__main__':
     sanity_check("/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2day", "/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/config.txt")
     if len(sys.argv) != 3:
