@@ -18,8 +18,19 @@ import copy
 import re
 from dateutil.parser import parse
 from bokeh.models.widgets import Paragraph
+from bs4 import BeautifulSoup as Soup
+from bokeh.embed import components
+
 
 def sanity_check(root_path, config_path):
+    """
+    Below are HTML Tag ids used in html template
+    """
+    MISSING_FILE_TAG = 'missing-file'
+    ANNOTATION_TAG = 'annotation'
+    SAMPLING_RATE_TAG = 'sampling-rate'
+    BOKEH_VERSION = '0.13.0'
+
     root_path = os.path.realpath(root_path)
     config = dict()
     with open(config_path, 'r') as file:
@@ -44,48 +55,85 @@ def sanity_check(root_path, config_path):
     to_check_annotation = any([x['check_annotation'] for x in config])
 
     # create the report elements according to configuration
+    # add corresponding html tag id to the elements
     total_report_elements = []
     pid_report_elements = dict()
-    
-    total_report_elements.append(Paragraph(text='Missing File List', style={'color':'blue'}))
+
+    has_template = os.path.exists('ReportTemplate.html')
+    if not has_template:
+        print('WARDING: Report template does not exist')
+
+    if not has_template:
+        total_report_elements.append(Paragraph(text='Missing File List', style={'color':'blue'}))
     if to_check_missing_file:
         missing_file, missing_file_table_pid = check_missing_file(root_path, config)
         for pid in missing_file_table_pid:
             if pid not in pid_report_elements:
                 pid_report_elements[pid] = []
-            pid_report_elements[pid].append(missing_file_table_pid[pid])
-        total_report_elements.append(missing_file)
+            pid_report_elements[pid].append((missing_file_table_pid[pid], MISSING_FILE_TAG))
+        total_report_elements.append((missing_file, MISSING_FILE_TAG))
     
-    total_report_elements.append(Paragraph(text='Sensor File Exceptions', style={'color':'blue'}))
+    if not has_template:
+        total_report_elements.append(Paragraph(text='Sensor File Exceptions', style={'color':'blue'}))
     if to_check_sampling_rate:
         abnormal_rate, sensor_tables = check_sampling_rate(root_path, config)
         for pid in sensor_tables:
             if pid not in pid_report_elements:
                 pid_report_elements[pid] = []
-            pid_report_elements[pid].append(sensor_tables[pid])
-        total_report_elements.append(abnormal_rate)
+            pid_report_elements[pid].append((sensor_tables[pid], SAMPLING_RATE_TAG))
+        total_report_elements.append((abnormal_rate, SAMPLING_RATE_TAG))
     
-    total_report_elements.append(Paragraph(text='Annotation Reports and Exceptions', style={'color':'blue'}))
+    if not has_template:
+        total_report_elements.append(Paragraph(text='Annotation Reports and Exceptions', style={'color':'blue'}))
     if to_check_annotation:
         total_annotation_graphs, histogram_by_day = check_annotation(root_path, config)
         for pid in histogram_by_day:
             if pid not in pid_report_elements:
                 pid_report_elements[pid] = []
-            pid_report_elements[pid].append(histogram_by_day[pid])
+            pid_report_elements[pid].append((histogram_by_day[pid], ANNOTATION_TAG))
+        total_annotation_graphs = [(x, ANNOTATION_TAG) for x in total_annotation_graphs]
         total_report_elements += total_annotation_graphs
 
-    __write_report(root_path, total_report_elements)
-    for pid in pid_report_elements:
-        __write_report(os.path.join(root_path, pid, 'Derived'), pid_report_elements[pid])
+    # now try to write report
+    # if there exists html template, use html template, else, write raw report
+    if has_template:
+        f = open('ReportTemplate.html','r')
+        template = f.read()
+        f.close()
+        f = open('BokehScripts.txt', 'r')
+        scripts = f.read()
+        f.close()
+        scripts = Soup(scripts.replace('x.y.z',BOKEH_VERSION), 'html.parser')
+        soup = Soup(template, 'html.parser')
+        soup.find('head').insert(-1, scripts)
+        __write_styled_report(root_path, total_report_elements, soup)
+        for pid in pid_report_elements:
+            __write_styled_report(os.path.join(root_path, pid, 'Derived'), pid_report_elements[pid], soup)
+    else:
+        __write_raw_report(root_path, [x[0] for x in total_report_elements])
+        for pid in pid_report_elements:
+            __write_raw_report(os.path.join(root_path, pid, 'Derived'), [x[0] for x in pid_report_elements[pid]])
     
      
-def __write_report(root_path, element_list):
+def __write_raw_report(root_path, element_list):
     reset_output()
     output_file(os.path.join(root_path,'report.html') , mode='inline')
     #output_file("report.html")
     report = layouts.column(element_list)
     save(report)
-        
+
+
+def __write_styled_report(root_path, element_list, soup):
+    soup = copy.deepcopy(soup)
+    for element_tuple in element_list:
+        tag_id = element_tuple[1]
+        element = element_tuple[0]
+        script, div = components(element)
+        soup.find('head').insert(-1, Soup(script, 'html.parser'))
+        soup.find("div", {"id" : tag_id}).find('h4').insert_after(Soup(div, 'html.parser'))
+    with open(os.path.join(root_path, 'report.html'), 'w') as f:
+        f.write(str(soup))
+
 
 def check_missing_file(root_path, config):
     
@@ -450,7 +498,6 @@ def __parse_annotation(pid, lower_bound, upper_bound, check_episode_duration, ch
         group_by_activity = annotation_table.iloc[:,[3,-1,-2]].groupby(by='DAY')
 
         # create graphs by day
-        
         histogram_graph_list = []
         episode_graph_list = []
         
@@ -585,7 +632,7 @@ def __check_episode_time(series, episode_time_limits, pid, annotator):
             
         
 if __name__ == '__main__':
-    sanity_check("/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2day", "/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/config.txt")
+    #sanity_check("/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2day", "/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/config.txt")
     if len(sys.argv) != 3:
         print('INSTRUCTION: [root_path] [config_path]')
     else:
