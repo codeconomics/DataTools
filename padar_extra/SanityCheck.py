@@ -363,7 +363,7 @@ def __graph_table(table):
     data_table = DataTable(source=source, columns=columns, width=1000, height=height,
                            fit_columns=True)
 
-    return layouts.widgetbox(data_table)
+    return layouts.widgetbox(data_table, sizing_mode='scale_height')
     
 
 def check_sampling_rate(root_path, config):
@@ -450,7 +450,7 @@ def check_annotation(root_path, config):
             histogram_by_day[pid] = layouts.column(*graphs)
 
     total_annotation_graphs = []
-    total_annotation_graphs.append(layouts.widgetbox(Tabs(tabs=histogram_tabs)))
+    total_annotation_graphs.append(layouts.widgetbox(Tabs(tabs=histogram_tabs), sizing_mode='scale_height'))
     total_annotation_graphs.append(__graph_table(annotation_exceptions))
     # return the elements need to included in the report
     return total_annotation_graphs, histogram_by_day
@@ -571,8 +571,8 @@ def __parse_annotation(pid, lower_bound, upper_bound, check_episode_duration, ch
             episode_graph_list.append(Panel(child=__graph_table(stats_table), title=pid + ": day "+str(day)))
             
     
-        histogram_list.append(layouts.widgetbox(Tabs(tabs=histogram_graph_list), width=500))
-        episode_table_list.append(layouts.widgetbox(Tabs(tabs=episode_graph_list), width=500))
+        histogram_list.append(layouts.widgetbox(Tabs(tabs=histogram_graph_list), width=500, sizing_mode='scale_height'))
+        episode_table_list.append(layouts.widgetbox(Tabs(tabs=episode_graph_list), width=500, sizing_mode='scale_height'))
         
         
         
@@ -663,7 +663,7 @@ def __check_episode_time(series, episode_time_limits, pid, annotator):
             
         
 if __name__ == '__main__':
-    #sanity_check("/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2day", "/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/config.txt")
+    sanity_check("/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2day", "/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/config.txt")
     if len(sys.argv) != 3:
         print('INSTRUCTION: [root_path] [config_path]')
     else:
