@@ -36,22 +36,11 @@ def sanity_check(root_path, config_path):
     with open(config_path, 'r') as file:
         config = yaml.load(file)
     
-    if config['pid'] is None:
-        config['pid'] = [name for name in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, name))]
-    
-    if 'sensor_locations' not in config:
-        config['sensor_locations'] = None
-    
-    if 'check_episode_duration' not in config:
-        config['check_episode_duration'] = None
-        
-    if 'check_episode_time' not in config:
-        config['check_episode_time'] = None
-
+    config = __fill_up_config(config, root_path)
     config = __specify_config(config)
 
     to_check_missing_file = any([x['check_missing_file'] for x in config])
-    to_check_sampling_rate = any([x['check_sampling_rate'] for x in config])
+    to_check_sampling_rate = any([x['check_sampling_rate'] is not None for x in config])
     to_check_annotation = any([x['check_annotation'] for x in config])
 
     # create the report elements according to configuration
@@ -131,6 +120,7 @@ def __write_styled_report(root_path, element_list, soup):
         script, div = components(element)
         soup.find('head').insert(-1, Soup(script, 'html.parser'))
         soup.find("div", {"id" : tag_id}).find('h4').insert_after(Soup(div, 'html.parser'))
+
     with open(os.path.join(root_path, 'report.html'), 'w') as f:
         f.write(str(soup))
 
@@ -141,24 +131,48 @@ def check_missing_file(root_path, config):
     #     raise Exception('Invalid Configuration')
 
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
-    
-    for check in config:
-        if check['check_missing_file']:
-            missing_file = missing_file.append(__check_meta_data(root_path, check['pid'], check['num_sensor'], check['sensor_locations']))
-            missing_file = missing_file.append(__check_hourly_data(root_path, check['pid'], 
-                                                                check['check_annotation_file'], check['check_event'], 
-                                                                check['check_EMA'], check['check_GPS'], 
-                                                                check['num_sensor'], check['num_annotator']))
-        
-    pid_grouped = missing_file.groupby('PID')
     missing_file_table_pid = dict()
 
-    for pid, data in pid_grouped:  
-        data.to_csv(os.path.join(root_path,pid,'Derived','missing_files.csv'))
-        missing_file_table_pid[pid] = __graph_table(data)
-        
+    for check in config:
+        if check['check_missing_file']:
+            missing_file_for_pid = __check_meta_data(root_path, check['pid'], check['num_sensor'], check['sensor_locations'])
+            missing_file_for_pid = missing_file_for_pid.append(__check_hourly_data(root_path, check['pid'], 
+                                                                check['check_annotation_file_exist'], check['check_event'], 
+                                                                check['check_EMA'], check['check_GPS'], 
+                                                                check['num_sensor'], check['num_annotator']))
+            missing_file = missing_file.append(missing_file_for_pid)
+            missing_file_for_pid.to_csv(os.path.join(root_path,check['pid'],'Derived','missing_files.csv'))
+            missing_file_table_pid[check['pid']] = __graph_table(missing_file_for_pid)
+        else:
+            missing_file_table_pid[check['pid']] = Paragraph(text='Missing File Not Checked', style={'color':'blue'})
+    
+    missing_file.to_csv(os.path.join(root_path, 'missing_file.csv'))
+   
     return __graph_table(missing_file), missing_file_table_pid
     
+
+def __fill_up_config(config, root_path = None):
+    if root_path is not None:
+        if config['pid'] is None:
+            config['pid'] = [name for name in os.listdir(root_path) if os.path.isdir(os.path.join(root_path, name))]
+
+    if 'sensor_locations' not in config:
+        config['sensor_locations'] = None
+
+    if 'check_episode_duration' not in config or config['check_episode_duration'] == False:
+        config['check_episode_duration'] = None
+        
+    if 'check_episode_time' not in config or config['check_episode_time'] == False:
+        config['check_episode_time'] = None
+
+    if 'check_missing_file' not in config:
+        config['check_missing_file'] = False
+    
+    if 'check_sampling_rate' not in config or config['check_sampling_rate'] == False:
+        config['check_sampling_rate'] = None
+
+    return config
+
 
 def __specify_config(config):
     new_config = []
@@ -182,13 +196,14 @@ def __specify_config(config):
                     temp_dict.update(copy.deepcopy(specification))
                     break
         
+        temp_dict = __fill_up_config(temp_dict)
         new_config.append(temp_dict)
     
     return new_config
         
 
 def __validate_config_missing_file(config):
-    valid =  all(all(x in y.keys() for x in ['pid','check_annotation_file', 
+    valid =  all(all(x in y.keys() for x in ['pid','_exist', 
                'check_event','check_EMA','check_GPS','num_annotator','num_sensor', 'sensor_locations']) for y in config)
     
     for check in config:
@@ -242,7 +257,7 @@ def __check_meta_data(root_path, pid, num_sensor, sensor_locations):
     return missing_file
                 
 
-def __check_hourly_data(root_path, pid, check_annotation_file, check_event, check_EMA, check_GPS, num_sensor, num_annotator):
+def __check_hourly_data(root_path, pid, _exist, check_event, check_EMA, check_GPS, num_sensor, num_annotator):
     missing_file = pd.DataFrame(columns=['PID', 'FileType', 'FilePath', 'Note'])
     # traverse the directory tree to find the start time and end time
     hourly_path = __get_hourly_path(root_path, pid)
@@ -279,7 +294,7 @@ def __check_hourly_data(root_path, pid, check_annotation_file, check_event, chec
                                     },
                                     ignore_index=True)
         
-        if check_annotation_file:
+        if _exist:
             annotation_count = 0
             for file_name in files:
                 if re.findall('.annotation.csv', file_name):
@@ -325,6 +340,8 @@ def __check_hourly_data(root_path, pid, check_annotation_file, check_event, chec
         
     
 def __graph_table(table):
+    if table.shape[0] < 1:
+        return Paragraph(text='No Exceptions Found', style={'color':'blue'})
     source = ColumnDataSource(table)
     columns = []
     for name in table.columns.values:
@@ -334,7 +351,11 @@ def __graph_table(table):
             columns.append(TableColumn(field=name, title=name))
     
     columns[-1].width = 1000
-    data_table = DataTable(source=source, columns=columns, width=1000, height=280,
+    if table.shape[0] >= 9:
+        height = 280
+    else:
+        height = 30*table.shape[0] + 10
+    data_table = DataTable(source=source, columns=columns, width=1000, height=height,
                            fit_columns=True)
 
     return layouts.widgetbox(data_table)
@@ -342,19 +363,21 @@ def __graph_table(table):
 
 def check_sampling_rate(root_path, config):
     abnormal_rate = pd.DataFrame(columns = ['PID','TimePeriod', 'SamplingRate', 'FilePath'])
-    
-    for check in config:
-        if check['check_sampling_rate']:
-            abnormal_rate = abnormal_rate.append(__parse_sampling_rate(check['pid'], check['claimed_rate'], check['accept_range'], root_path))
-        
-    abnormal_rate.to_csv(os.path.join(root_path, 'sensor_exceptions.csv'))
     sensor_tables = dict()
 
-    pid_grouped = abnormal_rate.groupby('PID')
-    for pid, data in pid_grouped:  
-        data.to_csv(os.path.join(root_path,pid,'Derived','sensor_exceptions.csv'))
-        sensor_tables[pid] = __graph_table(data)
+    for check in config:
+        if check['check_sampling_rate'] is not None:
+            abnormal_rate_for_pid = __parse_sampling_rate(check['pid'], 
+                check['check_sampling_rate']['claimed_rate'], 
+                check['check_sampling_rate']['accept_range'], 
+                root_path)
+            abnormal_rate = abnormal_rate.append(abnormal_rate_for_pid)
+            abnormal_rate.to_csv(os.path.join(root_path, check['pid'], 'Derived','sensor_exceptions.csv'))
+            sensor_tables[check['pid']] = __graph_table(abnormal_rate_for_pid)
+        else:
+            sensor_tables[check['pid']] = Paragraph(text='Sampling Rate Not Checked', style={'color':'blue'})
         
+    abnormal_rate.to_csv(os.path.join(root_path, 'sensor_exceptions.csv'))
     return __graph_table(abnormal_rate), sensor_tables
 
 
@@ -400,12 +423,14 @@ def check_annotation(root_path, config):
     
     for check in config:
         if check['check_annotation']:
-            new_exceptions, figures = __parse_annotation(check['pid'], check['lower_bound'], check['upper_bound'], 
+            new_exceptions, figures = __parse_annotation(check['pid'], check['annotation_lower_bound'], check['annotation_upper_bound'], 
                                                          check['check_episode_duration'], 
                                                          check['check_episode_time'],
                                                          root_path)
             annotation_exceptions = annotation_exceptions.append(new_exceptions)
             histogram_by_day[check['pid']] = figures
+        else:
+            histogram_by_day[check['pid']] = Paragraph(text='Annotation Not Checked', style={'color':'blue'})
 
     annotation_exceptions.to_csv(os.path.join(root_path, 'annotation_exceptions.csv'))
     
@@ -415,8 +440,9 @@ def check_annotation(root_path, config):
     
     histogram_tabs = []
     for pid, graphs in histogram_by_day.items():
-        histogram_tabs.append(Panel(child=layouts.column(*graphs[0:-1]), title=pid))
-        histogram_by_day[pid] = layouts.column(*graphs)
+        if isinstance(graphs, list):
+            histogram_tabs.append(Panel(child=layouts.column(*graphs[0:-1]), title=pid))
+            histogram_by_day[pid] = layouts.column(*graphs)
 
     total_annotation_graphs = []
     total_annotation_graphs.append(layouts.widgetbox(Tabs(tabs=histogram_tabs)))
@@ -453,6 +479,10 @@ def __parse_annotation(pid, lower_bound, upper_bound, check_episode_duration, ch
     upper_bound = pd.Timedelta(upper_bound)
     histogram_list = []
     episode_table_list = []
+
+    # create graphs by day
+    histogram_graph_list = []
+    episode_graph_list = []
 
     for annotator, annotation_table in all_annotation_table.items():
         
@@ -496,10 +526,6 @@ def __parse_annotation(pid, lower_bound, upper_bound, check_episode_duration, ch
         annotation_table['DURATION'] = annotation_table.iloc[:,2] - annotation_table.iloc[:,1]
         annotation_table['DAY'] = annotation_table.iloc[:,1].dt.day
         group_by_activity = annotation_table.iloc[:,[3,-1,-2]].groupby(by='DAY')
-
-        # create graphs by day
-        histogram_graph_list = []
-        episode_graph_list = []
         
         for day, data in group_by_activity:
             # create histogram of duration per activity by day
