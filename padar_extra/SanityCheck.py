@@ -450,7 +450,7 @@ def check_annotation(root_path, config):
             histogram_by_day[pid] = layouts.column(*graphs)
 
     total_annotation_graphs = []
-    total_annotation_graphs.append(layouts.widgetbox(Tabs(tabs=histogram_tabs), sizing_mode = 'scale_width'))
+    total_annotation_graphs.append(layouts.widgetbox(Tabs(tabs=histogram_tabs), width=2000, sizing_mode = 'scale_width'))
     total_annotation_graphs.append(__graph_table(annotation_exceptions))
     # return the elements need to included in the report
     return total_annotation_graphs, histogram_by_day
@@ -571,8 +571,8 @@ def __parse_annotation(pid, lower_bound, upper_bound, check_episode_duration, ch
             episode_graph_list.append(Panel(child=__graph_table(stats_table), title=pid + ": day "+str(day)))
             
     
-        histogram_list.append(layouts.widgetbox(Tabs(tabs=histogram_graph_list), width=500, sizing_mode='scale_width'))
-        episode_table_list.append(layouts.widgetbox(Tabs(tabs=episode_graph_list), width=500, sizing_mode='scale_width'))
+        histogram_list.append(layouts.widgetbox(Tabs(tabs=histogram_graph_list), width=2000, sizing_mode='scale_width'))
+        episode_table_list.append(layouts.widgetbox(Tabs(tabs=episode_graph_list), width=2000, sizing_mode='scale_width'))
         
         
         
