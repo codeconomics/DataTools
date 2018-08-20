@@ -663,7 +663,7 @@ def __check_episode_time(series, episode_time_limits, pid, annotator):
             
         
 if __name__ == '__main__':
-    sanity_check("/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2day", "/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/config.txt")
+    #sanity_check("/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2day", "/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/config.txt")
     if len(sys.argv) != 3:
         print('INSTRUCTION: [root_path] [config_path]')
     else:
