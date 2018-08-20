@@ -49,12 +49,12 @@ def sanity_check(root_path, config_path):
     pid_report_elements = dict()
     file_dir = os.path.dirname(os.path.realpath(__file__))
 
-    has_template = os.path.exists(os.join(file_dir,'ReportTemplate.html'))
+    has_template = os.path.exists(os.path.join(file_dir,'ReportTemplate.html'))
     if not has_template:
         print('WARDING: Report template does not exist')
 
     if has_template:
-        if not os.path.exists(os.join(file_dir,'BokehScripts.txt')):
+        if not os.path.exists(os.path.join(file_dir,'BokehScripts.txt')):
             raise Exception('Bokeh scripts file missing')
 
     if not has_template:
