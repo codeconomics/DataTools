@@ -52,6 +52,10 @@ def sanity_check(root_path, config_path):
     if not has_template:
         print('WARDING: Report template does not exist')
 
+    if has_template:
+        if not os.path.exists('BokehScripts.txt'):
+            raise Exception('Bokeh scripts file missing')
+
     if not has_template:
         total_report_elements.append(Paragraph(text='Missing File List', style={'color':'blue'}))
     if to_check_missing_file:
@@ -101,7 +105,7 @@ def sanity_check(root_path, config_path):
     else:
         __write_raw_report(root_path, [x[0] for x in total_report_elements])
         for pid in pid_report_elements:
-            __write_raw_report(os.path.join(root_path, pid, 'Derived'), [x[0] for x in pid_report_elements[pid]])
+            __write_raw_report(os.path.join(root_path, pid, 'Derived'), [x[0] for x in pid_report_elements[pid] if isinstance(x, list)])
     
      
 def __write_raw_report(root_path, element_list):
@@ -362,7 +366,7 @@ def __graph_table(table):
     
 
 def check_sampling_rate(root_path, config):
-    abnormal_rate = pd.DataFrame(columns = ['PID','TimePeriod', 'SamplingRate', 'FilePath'])
+    abnormal_rate = pd.DataFrame(columns = ['PID','TimePeriod', 'SamplingRatePerMinute', 'FilePath'])
     sensor_tables = dict()
 
     for check in config:
@@ -382,7 +386,7 @@ def check_sampling_rate(root_path, config):
 
 
 def __parse_sampling_rate(pid, claim_rate, accept_range, root_path):
-    abnormal_rate = pd.DataFrame(columns = ['PID','TimePeriod', 'SamplingRate', 'FilePath'])
+    abnormal_rate = pd.DataFrame(columns = ['PID','TimePeriod', 'SamplingRatePerMinute', 'FilePath'])
     hourly_path = __get_hourly_path(root_path, pid)
 
     for time in hourly_path:
@@ -401,7 +405,7 @@ def __parse_sampling_rate(pid, claim_rate, accept_range, root_path):
                 if count[0] <= normalrate*(1-accept_range) or count[0] >= normalrate*(1+accept_range):
                     abnormal_rate = abnormal_rate.append({'PID' : pid,
                                                           'TimePeriod': index,
-                                                          'SamplingRate': count[0],
+                                                          'SamplingRatePerMinute': count[0],
                                                           'FilePath': os.path.join(target_path, sensor_file)},
                                         ignore_index=True)
     return abnormal_rate
