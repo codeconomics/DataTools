@@ -1,0 +1,13 @@
+<link
+    href="https://cdn.pydata.org/bokeh/release/bokeh-x.y.z.min.css"
+    rel="stylesheet" type="text/css">
+<link
+    href="https://cdn.pydata.org/bokeh/release/bokeh-widgets-x.y.z.min.css"
+    rel="stylesheet" type="text/css">
+<link
+    href="https://cdn.pydata.org/bokeh/release/bokeh-tables-x.y.z.min.css"
+    rel="stylesheet" type="text/css">
+
+<script src="https://cdn.pydata.org/bokeh/release/bokeh-x.y.z.min.js"></script>
+<script src="https://cdn.pydata.org/bokeh/release/bokeh-widgets-x.y.z.min.js"></script>
+<script src="https://cdn.pydata.org/bokeh/release/bokeh-tables-x.y.z.min.js"></script>

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Bootstrap Example</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  <style>
+    /* Set height of the grid so .sidenav can be 100% (adjust as needed) */
+    .row.content {height: 550px}
+
+    /* Set gray background color and 100% height */
+    .sidenav {
+      background-color: #f1f1f1;
+      height: 100%;
+      width: 160px;
+      position: fixed;
+    }
+
+    .main {
+      margin-left: 160px; /* Same as the width of the sidenav */
+      font-size: 28px; /* Increased text to enable scrolling */
+      padding: 0px 10px;
+	}
+
+
+    /* On small screens, set height to 'auto' for the grid */
+    @media screen and (max-width: 767px) {
+      .row.content {height: auto;}
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-inverse visible-xs">
+  <div class="container-fluid">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#myNavbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="#">Sanity Check Report</a>
+    </div>
+    <div class="collapse navbar-collapse" id="myNavbar">
+      <ul class="nav navbar-nav">
+        <li><a href="#missing-file">Missing Files</a></li>
+        <li><a href="#annotation">Annotation</a></li>
+        <li><a href="#sampling-rate">Sampling Rate</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container-fluid">
+  <div class="row content">
+    <div class="col-sm-3 sidenav hidden-xs">
+      <h2>Sanity Check Report</h2>
+      <ul class="nav nav-pills nav-stacked">
+        <li><a href="#missing-file">Missing Files</a></li>
+        <li><a href="#annotation">Annotation</a></li>
+        <li><a href="#sampling-rate">Sampling Rate</a></li>
+      </ul><br>
+    </div>
+    <br>
+
+<div class="main">
+    <div class="col-sm-12">
+      <div class="well" id="missing-file">
+        <h4>Missing File Report</h4>
+      </div>
+    </div>
+
+    <div class="col-sm-12">
+      <div class="well" id="annotation">
+        <h4>Annotation Report</h4>
+      </div>
+    </div>
+
+    <div class="col-sm-12">
+      <div class="well" id="sampling-rate">
+        <h4>Sampling Rate Report</h4>
+      </div>
+    </div>
+</div>
+
+
+<body>
+</html>
