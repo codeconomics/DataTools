@@ -103,7 +103,7 @@ def sanity_check(root_path, config_path):
         for pid in pid_report_elements:
             __write_styled_report(os.path.join(root_path, pid, 'Derived'), pid_report_elements[pid], soup)
     else:
-        __write_raw_report(root_path, [x[0] for x in total_report_elements])
+        __write_raw_report(root_path, [x[0] for x in total_report_elements if isinstance(x, list)])
         for pid in pid_report_elements:
             __write_raw_report(os.path.join(root_path, pid, 'Derived'), [x[0] for x in pid_report_elements[pid] if isinstance(x, list)])
     
