@@ -47,13 +47,14 @@ def sanity_check(root_path, config_path):
     # add corresponding html tag id to the elements
     total_report_elements = []
     pid_report_elements = dict()
+    file_dir = os.path.dirname(os.path.realpath(__file__))
 
-    has_template = os.path.exists('ReportTemplate.html')
+    has_template = os.path.exists(os.join(file_dir,'ReportTemplate.html'))
     if not has_template:
         print('WARDING: Report template does not exist')
 
     if has_template:
-        if not os.path.exists('BokehScripts.txt'):
+        if not os.path.exists(os.join(file_dir,'BokehScripts.txt')):
             raise Exception('Bokeh scripts file missing')
 
     if not has_template:
@@ -90,10 +91,10 @@ def sanity_check(root_path, config_path):
     # now try to write report
     # if there exists html template, use html template, else, write raw report
     if has_template:
-        f = open('ReportTemplate.html','r')
+        f = open(os.path.join(file_dir,'ReportTemplate.html'),'r')
         template = f.read()
         f.close()
-        f = open('BokehScripts.txt', 'r')
+        f = open(os.path.join(file_dir,'BokehScripts.txt'), 'r')
         scripts = f.read()
         f.close()
         scripts = Soup(scripts.replace('x.y.z',BOKEH_VERSION), 'html.parser')
