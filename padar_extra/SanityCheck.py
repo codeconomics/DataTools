@@ -29,8 +29,12 @@ import click
 @click.option('--pid')
 def sanity_check(root_path, config_path, totalreport, pid=None):
     """
-    Below are HTML Tag ids used in html template
+    This function parse files in mHealth structure and generate reports with statistics 
+    and discrepancies flagged, according to the configuration file provided.
+    For more information, see https://github.com/codeconomics/DataTools/edit/master/ReadMe.md
     """
+
+    # Below are HTML Tag ids used in html template
     MISSING_FILE_TAG = 'missing-file'
     ANNOTATION_TAG = 'annotation'
     SAMPLING_RATE_TAG = 'sampling-rate'
@@ -107,7 +111,7 @@ def sanity_check(root_path, config_path, totalreport, pid=None):
         f.close()
         scripts = Soup(scripts.replace('x.y.z',BOKEH_VERSION), 'html.parser')
         soup = Soup(template, 'html.parser')
-        soup.find('head').insert(-1, scripts)
+        soup.find('head').append(scripts)
         if totalreport:
             __write_styled_report(root_path, total_report_elements, soup)
         for pid in pid_report_elements:
@@ -133,8 +137,8 @@ def __write_styled_report(root_path, element_list, soup):
         tag_id = element_tuple[1]
         element = element_tuple[0]
         script, div = components(element)
-        soup.find('head').insert(-1, Soup(script, 'html.parser'))
-        soup.find("div", {"id" : tag_id}).find('h4').insert_after(Soup(div, 'html.parser'))
+        soup.find('head').append(Soup(script, 'html.parser'))
+        soup.find("div", {"id" : tag_id}).append(Soup(div, 'html.parser'))
 
     with open(os.path.join(root_path, 'report.html'), 'w') as f:
         f.write(str(soup))
@@ -372,14 +376,15 @@ def __graph_table(table):
             columns.append(TableColumn(field=name, title=name))
     
     columns[-1].width = 1000
-    if table.shape[0] >= 9:
-        height = 280
-    else:
-        height = 30*table.shape[0] + 10
+    # if table.shape[0] >= 9:
+    #     height = 280
+    # else:
+    #     height = 30*table.shape[0] + 10
+    height = 280
     data_table = DataTable(source=source, columns=columns, width=1000, height=height,
                            fit_columns=True)
 
-    return layouts.widgetbox(data_table, sizing_mode='scale_width')
+    return layouts.widgetbox(data_table, sizing_mode='fixed')
     
 
 def check_sampling_rate(root_path, config, totalreport):
@@ -464,18 +469,24 @@ def check_annotation(root_path, config, totalreport):
     histogram_tabs = []
     for pid, graphs in histogram_by_day.items():
         if isinstance(graphs, list):
-            histogram_tabs.append(Panel(child=layouts.column(*graphs[0:-1]), title=pid))
+            histogram_tabs.append(Panel(child=layouts.column(*graphs[1:]), title=pid))
             histogram_by_day[pid] = layouts.column(*graphs)
 
     total_annotation_graphs = []
-    total_annotation_graphs.append(layouts.widgetbox(Tabs(tabs=histogram_tabs), width=2000, sizing_mode = 'scale_width'))
     total_annotation_graphs.append(__graph_table(annotation_exceptions))
+    total_annotation_graphs.append(layouts.widgetbox(Tabs(tabs=histogram_tabs), width=2000, sizing_mode = 'fixed'))
     # return the elements need to included in the report
     return total_annotation_graphs, histogram_by_day
 
 
 def __parse_annotation(pid, lower_bound, upper_bound, check_episode_duration, check_episode_time, root_path):
     print('CHECKING ANNOTATION', pid)
+
+    ## this is a fix for bokeh bug:
+    fig1 = figure()
+    fig1.circle([0],[0])
+    tab_invsible = Panel(child=fig1, title='')    
+
     annotation_exceptions = pd.DataFrame(columns=['PID','ANNOTATOR','START_TIME','STOP_TIME','LABEL_NAME','ISSUE'])
     hourly_path = __get_hourly_path(root_path, pid)
     all_annotation_files = {}
@@ -588,15 +599,14 @@ def __parse_annotation(pid, lower_bound, upper_bound, check_episode_duration, ch
                                     ignore_index=True)
             episode_graph_list.append(Panel(child=__graph_table(stats_table), title=pid + ": day "+str(day)))
             
+        #histogram_graph_list.append(tab_invsible)
+        #episode_graph_list.append(tab_invsible)
+        histogram_list.append(layouts.widgetbox(Tabs(tabs=histogram_graph_list), width=2000, sizing_mode='scale_height'))
+        episode_table_list.append(layouts.widgetbox(Tabs(tabs=episode_graph_list), width=2000, sizing_mode='scale_height'))
+        table_graph = __graph_table(annotation_exceptions)
     
-        histogram_list.append(layouts.widgetbox(Tabs(tabs=histogram_graph_list), width=2000, sizing_mode='scale_width'))
-        episode_table_list.append(layouts.widgetbox(Tabs(tabs=episode_graph_list), width=2000, sizing_mode='scale_width'))
-        
-        
-        
-    table_graph = __graph_table(annotation_exceptions)
 
-    return annotation_exceptions, [*histogram_list, *episode_table_list,table_graph]
+    return annotation_exceptions, [table_graph, *histogram_list, *episode_table_list]
 
 
 def __combine_annotation(all_annotation_files):
