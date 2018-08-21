@@ -1,8 +1,20 @@
 ## Sanity Check Tool
 
  ### SanityCheck.py
- Usage: Python SanityCheck.py [root_path] [config_path]  
+ **Usage:** 
  
+ SanityCheck.py `[OPTIONS]` `ROOT_PATH` `CONFIG_PATH`
+
+  This function parse files in mHealth structure and generate reports with
+  statistics  and discrepancies flagged, according to the configuration file
+  provided. For more information, see
+  https://github.com/codeconomics/DataTools/edit/master/ReadMe.md
+
+ Options:  
+   `--totalreport`  If selected, it will generate a total report for all pids provided in root path  
+   `--pid TEXT`     If provided, it will only check the given pid  
+   `--help`         Show this message and exit.  
+   
  **key constant variables:**
  
  Here are some changeable variables in `sanity_check` method
