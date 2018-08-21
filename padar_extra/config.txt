@@ -30,6 +30,7 @@ specification:
     pid: Aiden
     check_episode_time:
       ambulation: ['22:00', '23:00']
+    check_sampling_rate : false
   
   -
     pid: SPADES_3
