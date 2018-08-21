@@ -20,9 +20,14 @@ from dateutil.parser import parse
 from bokeh.models.widgets import Paragraph
 from bs4 import BeautifulSoup as Soup
 from bokeh.embed import components
+import click
 
-
-def sanity_check(root_path, config_path):
+@click.command()
+@click.argument('root_path', type=click.Path(exists=True))
+@click.argument('config_path', type=click.Path(exists=True))
+@click.option('--totalreport', is_flag=True, default=False)
+@click.option('--pid')
+def sanity_check(root_path, config_path, totalreport, pid=None):
     """
     Below are HTML Tag ids used in html template
     """
@@ -35,6 +40,9 @@ def sanity_check(root_path, config_path):
     config = dict()
     with open(config_path, 'r') as file:
         config = yaml.load(file)
+
+    if pid is not None:
+        config['pid'] = pid
     
     config = __fill_up_config(config, root_path)
     config = __specify_config(config)
@@ -60,7 +68,7 @@ def sanity_check(root_path, config_path):
     if not has_template:
         total_report_elements.append(Paragraph(text='Missing File List', style={'color':'blue'}))
     if to_check_missing_file:
-        missing_file, missing_file_table_pid = check_missing_file(root_path, config)
+        missing_file, missing_file_table_pid = check_missing_file(root_path, config, totalreport)
         for pid in missing_file_table_pid:
             if pid not in pid_report_elements:
                 pid_report_elements[pid] = []
@@ -70,7 +78,7 @@ def sanity_check(root_path, config_path):
     if not has_template:
         total_report_elements.append(Paragraph(text='Sensor File Exceptions', style={'color':'blue'}))
     if to_check_sampling_rate:
-        abnormal_rate, sensor_tables = check_sampling_rate(root_path, config)
+        abnormal_rate, sensor_tables = check_sampling_rate(root_path, config, totalreport)
         for pid in sensor_tables:
             if pid not in pid_report_elements:
                 pid_report_elements[pid] = []
@@ -80,7 +88,7 @@ def sanity_check(root_path, config_path):
     if not has_template:
         total_report_elements.append(Paragraph(text='Annotation Reports and Exceptions', style={'color':'blue'}))
     if to_check_annotation:
-        total_annotation_graphs, histogram_by_day = check_annotation(root_path, config)
+        total_annotation_graphs, histogram_by_day = check_annotation(root_path, config, totalreport)
         for pid in histogram_by_day:
             if pid not in pid_report_elements:
                 pid_report_elements[pid] = []
@@ -100,11 +108,13 @@ def sanity_check(root_path, config_path):
         scripts = Soup(scripts.replace('x.y.z',BOKEH_VERSION), 'html.parser')
         soup = Soup(template, 'html.parser')
         soup.find('head').insert(-1, scripts)
-        __write_styled_report(root_path, total_report_elements, soup)
+        if totalreport:
+            __write_styled_report(root_path, total_report_elements, soup)
         for pid in pid_report_elements:
             __write_styled_report(os.path.join(root_path, pid, 'Derived'), pid_report_elements[pid], soup)
     else:
-        __write_raw_report(root_path, [x[0] for x in total_report_elements if isinstance(x, list)])
+        if totalreport:
+            __write_raw_report(root_path, [x[0] for x in total_report_elements if isinstance(x, list)])
         for pid in pid_report_elements:
             __write_raw_report(os.path.join(root_path, pid, 'Derived'), [x[0] for x in pid_report_elements[pid] if isinstance(x, list)])
     
@@ -130,7 +140,7 @@ def __write_styled_report(root_path, element_list, soup):
         f.write(str(soup))
 
 
-def check_missing_file(root_path, config):
+def check_missing_file(root_path, config, totalreport):
     
     # if not __validate_config_missing_file(config):
     #     raise Exception('Invalid Configuration')
@@ -151,7 +161,8 @@ def check_missing_file(root_path, config):
         else:
             missing_file_table_pid[check['pid']] = Paragraph(text='Missing File Not Checked', style={'color':'blue'})
     
-    missing_file.to_csv(os.path.join(root_path, 'missing_file.csv'))
+    if totalreport:
+        missing_file.to_csv(os.path.join(root_path, 'missing_file.csv'))
    
     return __graph_table(missing_file), missing_file_table_pid
     
@@ -176,10 +187,15 @@ def __fill_up_config(config, root_path = None):
     if 'check_sampling_rate' not in config or config['check_sampling_rate'] == False:
         config['check_sampling_rate'] = None
 
+    if 'check_annotation' not in config:
+        config['check_annotation'] = False
+
     return config
 
 
 def __specify_config(config):
+    if not isinstance(config['pid'], list):
+        config['pid'] = [config['pid']]
     new_config = []
     keys = list(config.keys())
 
@@ -366,7 +382,7 @@ def __graph_table(table):
     return layouts.widgetbox(data_table, sizing_mode='scale_width')
     
 
-def check_sampling_rate(root_path, config):
+def check_sampling_rate(root_path, config, totalreport):
     abnormal_rate = pd.DataFrame(columns = ['PID','TimePeriod', 'SamplingRatePerMinute', 'FilePath'])
     sensor_tables = dict()
 
@@ -381,8 +397,9 @@ def check_sampling_rate(root_path, config):
             sensor_tables[check['pid']] = __graph_table(abnormal_rate_for_pid)
         else:
             sensor_tables[check['pid']] = Paragraph(text='Sampling Rate Not Checked', style={'color':'blue'})
-        
-    abnormal_rate.to_csv(os.path.join(root_path, 'sensor_exceptions.csv'))
+
+    if totalreport:    
+        abnormal_rate.to_csv(os.path.join(root_path, 'sensor_exceptions.csv'))
     return __graph_table(abnormal_rate), sensor_tables
 
 
@@ -421,7 +438,7 @@ def __get_hourly_path(root_path, pid):
     return hourly_path
 
 
-def check_annotation(root_path, config):
+def check_annotation(root_path, config, totalreport):
     annotation_exceptions = pd.DataFrame(columns=['PID','ANNOTATOR','START_TIME','STOP_TIME','LABEL_NAME','ISSUE'])
     
     histogram_by_day = dict()
@@ -437,7 +454,8 @@ def check_annotation(root_path, config):
         else:
             histogram_by_day[check['pid']] = Paragraph(text='Annotation Not Checked', style={'color':'blue'})
 
-    annotation_exceptions.to_csv(os.path.join(root_path, 'annotation_exceptions.csv'))
+    if totalreport:
+        annotation_exceptions.to_csv(os.path.join(root_path, 'annotation_exceptions.csv'))
     
     pid_grouped = annotation_exceptions.groupby('PID')
     for pid, data in pid_grouped:  
@@ -664,10 +682,7 @@ def __check_episode_time(series, episode_time_limits, pid, annotator):
         
 if __name__ == '__main__':
     #sanity_check("/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2day", "/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/config.txt")
-    if len(sys.argv) != 3:
-        print('INSTRUCTION: [root_path] [config_path]')
-    else:
-        sanity_check(sys.argv[1], sys.argv[2])
+    sanity_check()
         
         
         
