@@ -13,7 +13,7 @@
  `BOKEH_VERSION` = `'0.13.0'` The version of bokeh package  
  
  ### configuration
- The configuration file should be in [yaml syntax](https://learn.getgrav.org/advanced/yaml). Following are configurable variables:
+ The configuration file should be in [yaml syntax](https://learn.getgrav.org/advanced/yaml). You can refer to an example [here](../padar_extra/config.txt). Following are configurable variables:
   
   `pid` : a `list` of pid `string` needed to check within the root folder. 
   
