@@ -23,6 +23,7 @@ check_episode_duration:
 
 check_episode_time:
   ambulation: [3am, 6am]
+<<<<<<< HEAD
 
 specification:
   -
@@ -38,3 +39,12 @@ specification:
       - DominantThigh
       - DominantWaist
       - NonDominantWrist
+=======
+  
+specification:
+  -
+    pid : 'SPADES_1'
+    check_sampling_rate : false
+    check_episode_time:
+      sleep: [6pm, 10pm]
+>>>>>>> c0ee72d7f3e0c212d2405d40998129c8e0e117cf
