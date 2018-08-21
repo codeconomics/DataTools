@@ -8,9 +8,9 @@ check_GPS : false
 num_annotator : 1
 num_sensor : 1
 
-check_sampling_rate:
-  claimed_rate : 80
-  accept_range : 0.2
+#check_sampling_rate:
+#  claimed_rate : 80
+#  accept_range : 0.2
 
 check_annotation: true
 
