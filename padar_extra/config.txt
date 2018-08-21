@@ -28,3 +28,10 @@ check_episode_duration:
 
 check_episode_time:
   ambulation: [3am, 6am]
+  
+specification:
+  -
+    pid : 'SPADES_1'
+    check_sampling_rate : false
+    check_episode_time:
+      sleep: [6pm, 10pm]
