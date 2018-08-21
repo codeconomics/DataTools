@@ -7,8 +7,7 @@
 
   This function parse files in mHealth structure and generate reports with
   statistics  and discrepancies flagged, according to the configuration file
-  provided. For more information, see
-  https://github.com/codeconomics/DataTools/edit/master/ReadMe.md
+  provided. 
 
  Options:  
    `--totalreport`  If selected, it will generate a total report for all pids provided in root path  
@@ -25,7 +24,7 @@
  `BOKEH_VERSION` = `'0.13.0'` The version of bokeh package  
  
  ### configuration
- The configuration file should be in [yaml syntax](https://learn.getgrav.org/advanced/yaml). You can refer to an example [here](./padar_extra/config.txt). Following are configurable variables:
+ The configuration file should be in [yaml syntax](https://learn.getgrav.org/advanced/yaml). You can refer to an example [here](./padar_extra/config_example.txt). Following are configurable variables:
   
   `pid` : a `list` of pid `string` needed to check within the root folder. 
   

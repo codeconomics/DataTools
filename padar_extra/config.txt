@@ -1,4 +1,4 @@
-pid : ['Aiden', 'SPADES_3']
+pid : ['SPADES_1', 'SPADES_10', 'SPADES_11', 'SPADES_12', 'SPADES_13', 'SPADES_14', 'SPADES_15', 'SPADES_16', 'SPADES_17', 'SPADES_18', 'SPADES_19', 'SPADES_2', 'SPADES_20', 'SPADES_21', 'SPADES_22', 'SPADES_23', 'SPADES_24', 'SPADES_25', 'SPADES_26', 'SPADES_27', 'SPADES_28', 'SPADES_29', 'SPADES_3', 'SPADES_30', 'SPADES_31', 'SPADES_32', 'SPADES_33', 'SPADES_34', 'SPADES_35', 'SPADES_36', 'SPADES_37', 'SPADES_38', 'SPADES_39', 'SPADES_4', 'SPADES_40', 'SPADES_41', 'SPADES_42', 'SPADES_43', 'SPADES_44', 'SPADES_45', 'SPADES_46', 'SPADES_47', 'SPADES_48', 'SPADES_49', 'SPADES_50', 'SPADES_51', 'SPADES_6', 'SPADES_7']
 
 check_missing_file: true
 check_annotation_file_exist : true
@@ -8,9 +8,9 @@ check_GPS : false
 num_annotator : 1
 num_sensor : 1
 
-check_sampling_rate:
-  claimed_rate : 80
-  accept_range : 0.2
+#check_sampling_rate:
+#  claimed_rate : 80
+#  accept_range : 0.2
 
 check_annotation: true
 
@@ -23,29 +23,3 @@ check_episode_duration:
 
 check_episode_time:
   ambulation: [3am, 6am]
-<<<<<<< HEAD
-
-specification:
-  -
-    pid: Aiden
-    check_episode_time:
-      ambulation: ['22:00', '23:00']
-    check_sampling_rate : false
-  
-  -
-    pid: SPADES_3
-    check_sampling_rate: false
-    num_sensor: 4
-      - DominantAnkle
-      - DominantThigh
-      - DominantWaist
-      - NonDominantWrist
-=======
-  
-specification:
-  -
-    pid : 'SPADES_1'
-    check_sampling_rate : false
-    check_episode_time:
-      sleep: [6pm, 10pm]
->>>>>>> c0ee72d7f3e0c212d2405d40998129c8e0e117cf

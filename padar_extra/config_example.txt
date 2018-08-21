@@ -1,0 +1,41 @@
+pid : ['Aiden', 'SPADES_3']
+
+check_missing_file: true
+check_annotation_file_exist : true
+check_event : false
+check_EMA : false
+check_GPS : false
+num_annotator : 1
+num_sensor : 1
+
+check_sampling_rate:
+  claimed_rate : 80
+  accept_range : 0.2
+
+check_annotation: true
+
+annotation_lower_bound : 60 seconds
+annotation_upper_bound : 5 hours
+
+check_episode_duration:
+  sleep: ['>10h', '<2h']
+  wait: '>1h'
+
+check_episode_time:
+  ambulation: [3am, 6am]
+
+specification:
+  -
+    pid: Aiden
+    check_episode_time:
+      ambulation: ['22:00', '23:00']
+    check_sampling_rate : false
+  
+  -
+    pid: SPADES_3
+    check_sampling_rate: false
+    num_sensor: 4
+      - DominantAnkle
+      - DominantThigh
+      - DominantWaist
+      - NonDominantWrist
