@@ -603,8 +603,8 @@ def __parse_annotation(pid, lower_bound, upper_bound, check_episode_duration, ch
         #episode_graph_list.append(tab_invsible)
         histogram_list.append(layouts.widgetbox(Tabs(tabs=histogram_graph_list), width=2000, sizing_mode='scale_height'))
         episode_table_list.append(layouts.widgetbox(Tabs(tabs=episode_graph_list), width=2000, sizing_mode='scale_height'))
-        table_graph = __graph_table(annotation_exceptions)
     
+    table_graph = __graph_table(annotation_exceptions)
 
     return annotation_exceptions, [table_graph, *histogram_list, *episode_table_list]
 
