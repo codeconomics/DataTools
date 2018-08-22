@@ -444,6 +444,7 @@ def __get_hourly_path(root_path, pid):
 
 
 def check_annotation(root_path, config, totalreport):
+    SLICING_RANGE = 6
     annotation_exceptions = pd.DataFrame(columns=['PID','ANNOTATOR','START_TIME','STOP_TIME','LABEL_NAME','ISSUE'])
     
     histogram_by_day = dict()
@@ -474,7 +475,16 @@ def check_annotation(root_path, config, totalreport):
 
     total_annotation_graphs = []
     total_annotation_graphs.append(__graph_table(annotation_exceptions))
-    total_annotation_graphs.append(layouts.widgetbox(Tabs(tabs=histogram_tabs), width=2000, sizing_mode = 'fixed'))
+    
+    tabs_of_tabs = []
+    if len(histogram_tabs) > SLICING_RANGE:
+        for i in range(0, len(histogram_tabs) // SLICING_RANGE+1):
+            start_index = i*SLICING_RANGE
+            end_index = min(len(histogram_tabs), (i+1)*SLICING_RANGE)
+            tabs_of_tabs.append(Panel(child=layouts.widgetbox(Tabs(tabs=histogram_tabs[start_index:end_index]), width=2000, sizing_mode='fixed'), title='{} to {}'.format(start_index+1, end_index)))
+        total_annotation_graphs.append(layouts.widgetbox(Tabs(tabs=tabs_of_tabs), width=2000, sizing_mode='fixed'))
+    else:
+        total_annotation_graphs.append(layouts.widgetbox(Tabs(tabs=histogram_tabs), width=2000, sizing_mode = 'fixed'))
     # return the elements need to included in the report
     return total_annotation_graphs, histogram_by_day
 
