@@ -14,8 +14,12 @@ from textwrap import dedent as d
 import Visualizer
 import pandas as pd
 import copy
+import click as cli
 
-
+@cli.command()
+@cli.argument('annotations', type=cli.Path(exists=True))
+@cli.argument('all_testing', type=cli.Path(exists=True))
+@cli.argument('all_training', type=cli.Path(exists=True))
 def gen_interactive_histograms(annotations, testing_data = [], training_data = [], list_of_names = None, 
                                all_testing = None, all_training = None, 
                                feature_names=None, classes=None):
@@ -25,13 +29,13 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
     a spectrum graph of annotations
     
     Args:
-        annotations: pandas.DataFrame annotation file in mHealth format
+        annotations: filepath or pandas.DataFrame annotation file in mHealth format
         testing_data: a list of testing datasets to visualize initially, default []
         training_data: a list of training datasets to visualize initially, default []
         list_of_names: a list of names assigned to testing_data and training_data passed, default []
-        all_testing: pandas.DataFrame the whole testing features dataset in mHealth format with 
+        all_testing: filepath or pandas.DataFrame the whole testing features dataset in mHealth format with 
             prediction result in 'Result' column and ground truth in 'Truth' columnn
-        all_training: pandas.DataFrame the whole training features dataset in mHealth format with 
+        all_training: filepath or pandas.DataFrame the whole training features dataset in mHealth format with 
             ground truth in 'Truth' column
         feature_names: a list of feature name strings to indicate the order to display in drop down selectio
             menu, default []
@@ -39,6 +43,18 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
             exisiting unique classes
     
     """
+    
+    if isinstance(annotations, str):
+        annotations = pd.read_csv(annotations)
+    
+    if isinstance(all_testing, str):
+        all_testing = pd.read_csv(all_testing)
+    
+    if isinstance(all_training, str):
+        all_training = pd.read_csv(all_training)
+    
+    # remove header time from annotations
+    annotations = annotations.iloc[:,1:]
     
     if len(testing_data) == 0 and all_testing is None:
         raise Exception('No testing data provided')
@@ -75,8 +91,8 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
                          }
                         })
 
-    clicked=0
-    button_clicked=0
+    show_all_clicked=0
+    submit_clicked=0
     
     styles = {
     'pre': {
@@ -115,7 +131,7 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
                             )]),
             html.Div(className='row', children=[
                 html.Div([
-                    html.Button('Show All', id='button'),
+                    html.Button('Show All Misclassified', id='show-all-button'),
                     dcc.Graph(id='annotation', figure=ann_fig),
                     ##html.Pre(id='hover-data', style=styles['pre'])
                 ], className='three columns')],
@@ -143,12 +159,13 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
              [dash.dependencies.State('truth-class','value'),
              dash.dependencies.State('result-class','value'),])
     def update_histograms(feature_kind, update_trigger, truth, result):
-        nonlocal button_clicked
-        if update_trigger is not None and update_trigger > button_clicked:
+        nonlocal submit_clicked
+
+        if update_trigger is not None and update_trigger > submit_clicked:
             nonlocal testing_data
             nonlocal training_data
             nonlocal list_of_names
-            button_clicked = update_trigger
+            submit_clicked = update_trigger
             testing_data = []
             training_data = []
             list_of_names = []
@@ -156,8 +173,9 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
                                 (all_testing['Result'] == result),:])
             list_of_names.append(truth + ' to ' + result)
         
-            testing_data.append(all_testing.loc[all_testing['Truth'] == truth,:])
-            list_of_names.append('testing ' + truth)
+            testing_data.append(all_testing.loc[(all_testing['Truth'] == truth) &
+                                (all_testing['Result'] == truth),:])
+            list_of_names.append('testing correct ' + truth)
             
             testing_data.append(all_testing.loc[all_testing['Truth'] == result,:])
             list_of_names.append('testing ' + result)
@@ -199,13 +217,7 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
             # if it's a singular matrix, ignore this trace
             print('singular matrix', feature_name)
             return None
-# =============================================================================
-#         mean = list_of_data[0].loc[:,feature_kind].mean()
-#         std = list_of_data[0].loc[:,feature_kind].std()
-#         start = mean-7*std
-#         end =  mean+7*std
-#         size = (end-start)/100
-# =============================================================================
+
         print(feature_kind)
         start = min([min(data.loc[:,feature_kind]) for data in list_of_data])
         end = max([max(data.loc[:,feature_kind]) for data in list_of_data])
@@ -237,13 +249,13 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
     @app.callback(
         dash.dependencies.Output('annotation', 'figure'),
         [dash.dependencies.Input('histograms', 'clickData'),
-         dash.dependencies.Input('button','n_clicks'),
+         dash.dependencies.Input('show-all-button','n_clicks'),
          dash.dependencies.Input('submit-button','n_clicks')])
     def update_annotation(clickData, n_clicks, update_trigger): 
         new_fig = copy.deepcopy(ann_fig)
-        nonlocal clicked
-        if n_clicks is not None and n_clicks > clicked:
-            clicked = n_clicks
+        nonlocal show_all_clicked
+        if n_clicks is not None and n_clicks > show_all_clicked:
+            show_all_clicked = n_clicks
     
             new_fig['layout']['shapes'] += all_shapes
             return new_fig
@@ -280,7 +292,9 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
     app.run_server()
 
 
-           
+if __name__ == '__main__':
+    gen_interactive_histograms()
+               
         
         
         
