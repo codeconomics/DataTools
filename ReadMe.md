@@ -109,3 +109,28 @@
  ### ReportTemplate.html
     The html template for the report. If does not exist in the directory of the python script, a plain report will be generated. The html tag id for each components of the report is specified in `sanity_check` method, as explained in section SanityCheck.py
 
+
+## Interactive Histogram Tool
+
+### InteractiveHistogram.py
+**Usage:**
+
+Usage: InteractiveHistogram.py [OPTIONS] `ANNOTATIONS` `ALL_TESTING` `ALL_TRAINING`  
+
+  Create an interactive graph which has the histograms of features and  a  
+  spectrum graph of annotations  
+  
+  `ANNOTATIONS`: File path of the annotation file in mHealth format  
+  `ALL_TESTING`: File path of testing features file with ground truth with '`Truth`' as column name, and '`Result`' as prediction  
+  `ALL_TRAINING`: File path of training features file with ground truth with '`Truth`' as column name
+
+**IMPORTANT NOTICE:**
+
+Due the uncertainty of number of features, use label names specified as column name for ground truth and prediction
+
+### Visualizer.py
+    Visualizer must be concluded in working folder in order to provide feature and annotation grapher for this tool, for complete information about Visualizer, see comments of each functions
+    
+
+    
+  
