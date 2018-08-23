@@ -95,11 +95,23 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
     submit_clicked=0
     
     styles = {
-    'pre': {
-        'border': 'thin lightgrey solid',
-        'overflowX': 'scroll'
-        }
+        'dropdown-selection' : {
+                'fontFamily' : 'Arial, Helvetica, sans-serif',
+                'width': '49%', 
+                'display': 'inline-block', 
+                'vertical-align': 'middle',
+                'padding': 2
+                },
+
+        'property-selection' : {
+                'backgroundColor': 'AliceBlue',
+                },
+        
+        'submit-botton' : {
+                'padding':2}
     }
+    
+    app.css.append_css({"external_url": "https://codepen.io/chriddyp/pen/bWLwgP.css"})
     
     if classes is None and all_testing is not None:
         classes = list(all_testing.iloc[:,-1].unique())
@@ -110,21 +122,36 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
     app.layout = html.Div([
             
             html.Div([
-                    dcc.Dropdown(
-                            id='feature-kind',
-                            options=[{'label': feature_names[i], 'value': feature_names[i]} for i in range(len(feature_names))],
-                            value= 'MEAN_VM'),
-                    dcc.Dropdown(
-                            id='truth-class',
-                            options=options,
-                            ),
-                    dcc.Dropdown(
-                            id='result-class',
-                            options=options,
-                            ),
-                    html.Pre(id='class-selection', style=styles['pre']),
-                    html.Button('submit', id='submit-button'),
-    ]),
+                    html.Div([
+                        html.Label('SELECT FEATURE'),
+                        dcc.Dropdown(
+                                id='feature-kind',
+                                options=[{'label': feature_names[i], 'value': feature_names[i]} for i in range(len(feature_names))],
+                                value= 'MEAN_VM'),
+                        html.Label('SELECT GROUND TRUTH'),
+                        dcc.Dropdown(
+                                id='truth-class',
+                                options=options,
+                                ),
+                        ],
+                        style=styles['dropdown-selection']
+                    ),
+                    html.Div([
+                        html.Label('SELECT PREDICTION'),
+                        dcc.Dropdown(
+                                id='result-class',
+                                options=options,
+                                ),
+                        #html.Pre(id='class-selection', style=styles['pre']),
+                        html.Div(
+                                [html.Button('SUBMIT', id='submit-button')],
+                                
+                        style= styles['submit-botton'])
+                        ],
+                        style=styles['dropdown-selection']
+                    )
+            ], style=styles['property-selection']),
+    
             html.Div([
                     dcc.Graph(
                             id='histograms',
@@ -138,19 +165,7 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
             )
     ])
     
-    
-    @app.callback(
-            dash.dependencies.Output('class-selection','children'),
-            [dash.dependencies.Input('submit-button','n_clicks')],
-            [dash.dependencies.State('truth-class','value'),
-             dash.dependencies.State('result-class','value'),])
-    def update_class_selection(update_trigger, truth, result):
-        if truth is not None and result is not None:
-            return 'Showing {} classified as {}'.format(truth, result)
-        
-        return ""
-    
-    
+      
     
     @app.callback(
             dash.dependencies.Output('histograms','figure'),
