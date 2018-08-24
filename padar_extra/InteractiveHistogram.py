@@ -14,19 +14,15 @@ from textwrap import dedent as d
 import Visualizer
 import pandas as pd
 import copy
-import click as cli
 
-@cli.command()
-@cli.argument('annotations', type=cli.Path(exists=True))
-@cli.argument('all_testing', type=cli.Path(exists=True))
-@cli.argument('all_training', type=cli.Path(exists=True))
 def gen_interactive_histograms(annotations, testing_data = [], training_data = [], list_of_names = None, 
                                all_testing = None, all_training = None, 
                                feature_names=None, classes=None):
     
     """
     Create an interactive graph which has the histograms of features and 
-    a spectrum graph of annotations
+    a spectrum graph of annotations.
+    For more information, see https://github.com/codeconomics/DataTools/edit/master/ReadMe.md
     
     Args:
         annotations: filepath or pandas.DataFrame annotation file in mHealth format
@@ -111,6 +107,7 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
                 'padding':2}
     }
     
+    # change the default style for dropdown menu and buttons
     app.css.append_css({"external_url": "https://codepen.io/chriddyp/pen/bWLwgP.css"})
     
     if classes is None and all_testing is not None:
@@ -307,9 +304,7 @@ def gen_interactive_histograms(annotations, testing_data = [], training_data = [
     app.run_server()
 
 
-if __name__ == '__main__':
-    gen_interactive_histograms()
-               
+
         
         
         

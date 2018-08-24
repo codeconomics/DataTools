@@ -20,13 +20,7 @@ from dateutil.parser import parse
 from bokeh.models.widgets import Paragraph
 from bs4 import BeautifulSoup as Soup
 from bokeh.embed import components
-import click
 
-@click.command()
-@click.argument('root_path', type=click.Path(exists=True))
-@click.argument('config_path', type=click.Path(exists=True))
-@click.option('--totalreport', is_flag=True, default=False)
-@click.option('--pid')
 def sanity_check(root_path, config_path, totalreport, pid=None):
     """
     This function parse files in mHealth structure and generate reports with statistics 
@@ -700,9 +694,8 @@ def __check_episode_time(series, episode_time_limits, pid, annotator):
                                       series[3], lower_bound, upper_bound)})
             
         
-if __name__ == '__main__':
+#if __name__ == '__main__':
     #sanity_check("/Users/zhangzhanming/Desktop/mHealth/Data/SPADES_2day", "/Users/zhangzhanming/Desktop/mHealth/Test/sanitycheck/config.txt")
-    sanity_check()
         
         
         

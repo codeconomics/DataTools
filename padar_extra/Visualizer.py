@@ -16,11 +16,9 @@ import os.path
 import datetime as dt
 import numpy as np
 
-
-
 def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None, 
                                feature_index=None, return_fig=False, title='', colors=None,
-                               non_overlap=False, show_colorbar=True):
+                               non_overlap=False, show_colorbar=False, feature_num=16):
     """
 
     Create a figure with selected features(if no feature index is passed, select
@@ -36,7 +34,7 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
         titile: the title of the graph. Default empty string
         colors: preset colors for different labels. If empty generate random colors
         non_overlap: boolean indicate if annotations have overlaps. If True, will create
-            a spectrum graph for annotations
+            a spectrum graph for annotations, ONLY USE IT WHEN NOT GRAPHING FEATURES
         show_colorbar: if show legend
 
     Returns:
@@ -48,8 +46,10 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
 
     if featuredata is None:
         featuredata = None
-    elif isinstance(featuredata, str):
-        featuredata = pd.read_csv(featuredata)
+    else:
+        if isinstance(featuredata, str):
+            featuredata = pd.read_csv(featuredata)
+        show_colorbar = True
     if isinstance(annotationdata, str):
         annotationdata = pd.read_csv(annotationdata)
     if isinstance(feature_index, str):
@@ -90,7 +90,6 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
                 point['mode'] = 'lines+markers',
                 point['hoveron'] = 'points+fills'
 
-            
             del gantt_fig['layout']['yaxis']['tickvals']
             del gantt_fig['layout']['yaxis']['ticktext']
             gantt_fig['layout']['yaxis']['range'] = [0,2]
@@ -116,7 +115,7 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
     # create line chart for selected features
     if featuredata is not None:
         if feature_index is None:
-            feature_index = range(2,17)
+            feature_index = range(2,2+feature_num)
 
         traces = []
         for index in feature_index:
@@ -167,10 +166,9 @@ def annotation_feature_grapher(annotationdata, featuredata=None, path_out=None,
     if return_fig:
         return gantt_fig
 
-    if os.path.isdir(path_out):
-        path_out = path_out + '/'
+    path_out = os.path.join(os.path.realpath(path_out), 'feature_annotation_graph.html')
 
-    return py.plot(gantt_fig, filename=(path_out+'feature_annotation_graph.html'))
+    return py.plot(gantt_fig, filename=(path_out))
 
 
 def acc_grapher(data, path_out=None, return_fig = False, showlegend=False):
@@ -191,6 +189,9 @@ def acc_grapher(data, path_out=None, return_fig = False, showlegend=False):
 
     """
     
+    if isinstance(data, str):
+        data = pd.read_csv(data)
+
     x = go.Scatter(
             y=data['X_ACCELERATION_METERS_PER_SECOND_SQUARED'],
             x=data['HEADER_TIME_STAMP'],
@@ -225,13 +226,14 @@ def acc_grapher(data, path_out=None, return_fig = False, showlegend=False):
     if return_fig:
         return fig
 
-    if os.path.isdir(path_out):
-        path_out = path_out + '/'
+    
+    path_out = os.path.join(os.path.realpath(path_out), 'acc_graph.html')
 
-    return py.plot(fig, filename=path_out+'acc_graph.html')
+    return py.plot(fig, filename=path_out)
 
 
-def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig=False, showlegend=False, hide_traces=False):
+def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig=False, showlegend=False, hide_traces=False,
+                    feature_num=16):
     """
 
     Create a figure with feature data, if return_fig is true, return the
@@ -242,12 +244,18 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
         feature_index: the index of features to plot
         path_out: string the path to write
         return_fig: if return the figure object
+        showlegend: if show legend
+        hide_traces: if show the traces initially
 
     Returns:
         if return_fig == False: the url of the created figure
         else return the figure object
 
     """
+
+    if isinstance(featuredata, str):
+        featuredata = pd.read_csv(featuredata)
+
     traces = []
     if hide_traces:
         visible= 'legendonly'
@@ -256,7 +264,9 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
         
     if featuredata.shape[0] > 0:
         if feature_index is None:
-           feature_index = range(2,18)
+           feature_index = range(2,2+feature_num)
+        elif isinstance(feature_index, str):
+            feature_index = ast.literal_eval(feature_index)
     
         for index in feature_index:
             trace = go.Scatter(
@@ -285,10 +295,9 @@ def feature_grapher(featuredata, feature_index = None, path_out=None, return_fig
     if return_fig:
          return fig
 
-    if os.path.isdir(path_out):
-        path_out = path_out + '/'
+    path_out = os.path.join(os.path.realpath(path_out), 'feature_graph.html')
 
-    return py.plot(fig, filename=path_out+'feature_graph.html')
+    return py.plot(fig, filename=path_out)
 
 
 def generate_color(n):
@@ -311,11 +320,12 @@ def generate_color(n):
         colors.append('rgb('+','.join([str(r),str(g),str(b)])+')')
     return colors
 
-if __name__ == '__main__':
-    if len(sys.argv) <4:
-        print('INSTRUCTION: [annotatoin data file] [feature data file] [pathout] [feature list]')
-    else:
-        if len(sys.argv) == 4:
-            annotation_feature_grapher(sys.argv[1],sys.argv[2],sys.argv[3])
-        else:
-            annotation_feature_grapher(sys.argv[1],sys.argv[2],sys.argv[4])
+#if __name__ == '__main__':
+    # if len(sys.argv) <4:
+    #     print('INSTRUCTION: [annotatoin data file] [feature data file] [pathout] [feature list]')
+    # else:
+    #     if len(sys.argv) == 4:
+    #         annotation_feature_grapher(sys.argv[1],sys.argv[2],sys.argv[3])
+    #     else:
+    #         annotation_feature_grapher(sys.argv[1],sys.argv[2],sys.argv[4])
+    
