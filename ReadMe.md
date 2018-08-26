@@ -157,6 +157,16 @@ ParseLocationMapping.py `[root_path]` `[config_path]`
 ### location_mapping.csv
    The location mapping file will include three variables: `PID`, `SENSOR_ID`, `LOCATION`
    
-   
+## Annotation Splitter and Class Mapping Tool
+
+### AnnotationSplitter.py
+**Usage:**
+   For splitting:  
+   `SPLIT` `[Original File Path]` `[Formatted Annotation File Path]`  
+   For splitting and generating a class mapping file:  
+   `SPLIT_CLASSMAP` `[Original File Path]` `[Formatted Annotation File Path]`  
+   For generating a class mapping file:  
+   `CLASSMAP` `[Original File Path]` `[Formatted Annotation File Path]`  
+
 
   
