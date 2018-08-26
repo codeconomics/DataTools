@@ -1,9 +1,9 @@
 ## Sanity Check Tool
 
- ### SanityCheck.py
+ ### SanityCheckCommand.py
  **Usage:** 
  
- SanityCheck.py `[OPTIONS]` `ROOT_PATH` `CONFIG_PATH`
+ Python SanityCheckCommand.py `[OPTIONS]` `ROOT_PATH` `CONFIG_PATH`
 
   This function parse files in mHealth structure and generate reports with
   statistics  and discrepancies flagged, according to the configuration file
@@ -13,7 +13,10 @@
    `--totalreport`  If selected, it will generate a total report for all pids provided in root path  
    `--pid TEXT`     If provided, it will only check the given pid  
    `--help`         Show this message and exit.  
-   
+ 
+ ### SanityCheck.py
+ 
+ This file must be included in the working directory  
  **key constant variables:**
  
  Here are some changeable variables in `sanity_check` method
@@ -26,7 +29,7 @@
  ### configuration
  The configuration file should be in [yaml syntax](https://learn.getgrav.org/advanced/yaml). You can refer to an example [here](./padar_extra/config_example.txt). Following are configurable variables:
   
-  `pid` : a `list` of pid `string` needed to check within the root folder. 
+  `pid` : a `list` of pid `string` needed to check within the root folder. If pid is None(in yaml syntax, `pid : `), will search for all directories in the root folder
   
      E.g. pid : ['Aiden', 'SPADES_3']  
 
@@ -112,10 +115,10 @@
 
 ## Interactive Histogram Tool
 
-### InteractiveHistogram.py
+### InteractiveHistogramCommand.py
 **Usage:**
 
-Usage: InteractiveHistogram.py [OPTIONS] `ANNOTATIONS` `ALL_TESTING` `ALL_TRAINING`  
+Usage: InteractiveHistogramCommand.py [OPTIONS] `ANNOTATIONS` `ALL_TESTING` `ALL_TRAINING`  
 
   Create an interactive graph which has the histograms of features and  a  
   spectrum graph of annotations  
@@ -128,9 +131,32 @@ Usage: InteractiveHistogram.py [OPTIONS] `ANNOTATIONS` `ALL_TESTING` `ALL_TRAINI
 
 Due the uncertainty of number of features, use label names specified as column name for ground truth and prediction
 
+### InteractiveHistogram.py
+
+    This file is the script used in the command file, and must be included in the working directory.
+
 ### Visualizer.py
     Visualizer must be concluded in working folder in order to provide feature and annotation grapher for this tool, for complete information about Visualizer, see comments of each functions
     
 
+## Location Mapping Parsing Tool
+
+### ParseLocationMapping.py
+   This file search for acceleration data files in `OriginalRaw` folder in mHealth format and generate a location mapping file based on file names, storing in `Derived` folder. The pid in the root path to search could be specified in a configuration file. If the pid is kept empty, the tool will parse all folders in root directory.  
+   
+**Usage:** 
+
+ParseLocationMapping.py `[root_path]` `[config_path]`
+
+### Configuration
+   The configuration file should include a list of pids to parse in yaml syntax: `pid`: [`list of pids`]
+   
+    e.g. 
+    pid : [SPADES_1, SPADES_2, SPADES_3]
     
+### location_mapping.csv
+   The location mapping file will include three variables: `PID`, `SENSOR_ID`, `LOCATION`
+   
+   
+
   
