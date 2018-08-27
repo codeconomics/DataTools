@@ -1,0 +1,14 @@
+plotly==2.7.0
+matplotlib==2.2.2
+bokeh==0.13.0
+dash_core_components==0.23.0
+numpy==1.14.5
+setuptools==39.2.0
+dash==0.21.1
+click==6.7
+dash_html_components==0.11.0
+pandas==0.23.1
+beautifulsoup4==4.6.3
+python_dateutil==2.7.3
+scikit_learn==0.19.2
+PyYAML==3.13
