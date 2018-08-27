@@ -334,28 +334,27 @@ if __name__ == '__main__':
         command = sys.argv[1]
         path_in = sys.argv[2]
         path_out = sys.argv[3]
-        if os.path.isdir(path_out):
-            path_out = path_out + '/'
+
 
         in_annotation = pd.read_csv(path_in)
 
         if 'SPLIT' in command:
             splitted_annotation = annotation_splitter(in_annotation)
-            splitted_annotation.to_csv(path_out+'splitted.annotation.csv', index=False)
+            splitted_annotation.to_csv(os.path.join(path_out, 'splitted.annotation.csv'), index=False)
 
             if command == 'SPLIT_CLASSMAP':
                 class_map = class_mapping(splitted_annotation)
-                class_map.to_csv(path_out+'class_mapping.csv', index=False)
+                class_map.to_csv(os.path.join(path_out,'class_mapping.csv'), index=False)
 
         elif command == 'CLASSMAP':
             class_map = class_mapping(in_annotation)
-            class_map.to_csv(path_out+'class_mapping.csv', index=False)
+            class_map.to_csv(os.path.join(path_out,'class_mapping.csv'), index=False)
 
 
-def __test():
-    in_annotation=pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.ANKLE.2018-06-20/Aiden/Derived/RealLifeAnkleRawtotal.annotation.csv')
-    splitted = annotation_splitter(in_annotation)
-    classmapping = class_mapping(splitted)
-    test_class = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.class.csv')
-    unique_mapping = test_class.iloc[:,[2,3,4,5,6,8]].drop_duplicates()
-    unique_mapping.to_csv('/Users/zhangzhanming/Desktop/mHealth/Test/unique_mapping.csv')
+# def __test():
+#     in_annotation=pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Data/MyData/AIDEN.ANKLE.2018-06-20/Aiden/Derived/RealLifeAnkleRawtotal.annotation.csv')
+#     splitted = annotation_splitter(in_annotation)
+#     classmapping = class_mapping(splitted)
+#     test_class = pd.read_csv('/Users/zhangzhanming/Desktop/mHealth/Test/SPADESInLab.class.csv')
+#     unique_mapping = test_class.iloc[:,[2,3,4,5,6,8]].drop_duplicates()
+#     unique_mapping.to_csv('/Users/zhangzhanming/Desktop/mHealth/Test/unique_mapping.csv')

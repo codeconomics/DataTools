@@ -90,6 +90,8 @@ def standardize_label(activities):
         standardized_activities.append(activity)
     return standardized_activities
 
+# Please use the categorization feature in AnnotationSplitter.py
+
 def categorize_label(activities):
     categorized_activities = []
     for activity in activities:
