@@ -629,7 +629,30 @@ def __combine_annotation(all_annotation_files):
                     all_annotation.append(series)
 
         all_annotation = pd.DataFrame(all_annotation)
-        all_annotation_table[key] = all_annotation
+        
+        # split the cross-day activities to different days
+        splitted_annotation = pd.DataFrame(columns=all_annotation.columns)
+        for index, series in all_annotation.iterrows():
+            start_time = pd.to_datetime(series[1])
+            end_time = pd.to_datetime(series[2])
+            if start_time.day < end_time.day:
+                new_end = pd.to_datetime(dt.datetime(year=start_time.year, month=start_time.month, day=start_time.day,
+                                                  hour=23, minute=59,
+                                                  second=59, microsecond=999999))
+                new_start = pd.to_datetime(dt.datetime(year=end_time.year, month=end_time.month, day=end_time.day, 
+                                                    hour=0, minute=0,
+                                                    second=0, microsecond=0))
+                series1 = copy.deepcopy(series)
+                series2 = copy.deepcopy(series)
+                series1[2] = new_end
+                series2[1] = new_start
+                splitted_annotation = splitted_annotation.append(series1, ignore_index=True)
+                splitted_annotation = splitted_annotation.append(series2, ignore_index=True)
+            else:
+                splitted_annotation = splitted_annotation.append(series, ignore_index=True)
+                
+            
+        all_annotation_table[key] = splitted_annotation
     
     return all_annotation_table
 
