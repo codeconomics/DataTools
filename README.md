@@ -1,3 +1,9 @@
+# READ ME
+
+## Dependency Requirement
+Please refer to [requirements.txt](./requirements.txt) to install the packages needed for development  
+Please use this package under Python >= 3.6
+
 ## Sanity Check Tool
 
  ### SanityCheckCommand.py
@@ -137,7 +143,26 @@ Due the uncertainty of number of features, use label names specified as column n
 
 ### Visualizer.py
     Visualizer must be concluded in working folder in order to provide feature and annotation grapher for this tool, for complete information about Visualizer, see comments of each functions
-    
+
+## Synchronized Feature and Annotation Visualization Tool
+Plot features and annotations on one synchronized time line  
+
+### VisualizerCommand.py
+**Usage:** 
+Python VisualizerCommand.py `annotation_feature_grapher` `[OPTIONS]` `ANNOTATIONDATA`
+
+Options:  
+  `--featuredata` TEXT     csv file path of the feature data in mHealth format, if not provided, will not graph features  
+  `--path_out` PATH        the output path of the graph created, if not provided, will store in the current folder  
+  `--non_overlap`          indicating if the annotations have any overlap, if not, will create spectrum graph, ONLY USE IT WHEN NOT GRAPHING FEATURES  
+  `--title` TEXT           the title of graph  
+  `--feature_index` TEXT   a list of indexes of features to show in python syntax  
+  `--feature_num` INTEGER  number of features  
+  `--help`                 Show this message and exit.  
+
+
+### Visualizer.py
+    Visualizer must be concluded in working folder in order to provide feature and annotation grapher for this tool, for complete information about Visualizer, see comments of each functions
 
 ## Location Mapping Parsing Tool
 
