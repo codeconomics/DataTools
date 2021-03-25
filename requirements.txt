@@ -11,4 +11,4 @@ pandas==0.23.1
 beautifulsoup4==4.6.3
 python_dateutil==2.7.3
 scikit_learn==0.19.2
-PyYAML==3.13
+PyYAML==5.4
