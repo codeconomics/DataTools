@@ -2,7 +2,7 @@ plotly==2.7.0
 matplotlib==2.2.2
 bokeh==0.13.0
 dash_core_components==0.23.0
-numpy==1.14.5
+numpy==1.22.0
 setuptools==39.2.0
 dash==0.21.1
 click==6.7
