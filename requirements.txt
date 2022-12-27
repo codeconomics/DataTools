@@ -3,7 +3,7 @@ matplotlib==2.2.2
 bokeh==0.13.0
 dash_core_components==0.23.0
 numpy==1.14.5
-setuptools==39.2.0
+setuptools==65.5.1
 dash==0.21.1
 click==6.7
 dash_html_components==0.11.0
